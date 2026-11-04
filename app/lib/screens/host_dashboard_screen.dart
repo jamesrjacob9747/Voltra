@@ -6,8 +6,10 @@ import '../api.dart';
 import '../format.dart';
 import '../models.dart';
 import '../theme.dart';
+import '../widgets/confidence_badge.dart';
 import '../widgets/error_view.dart';
 import '../widgets/snack.dart';
+import 'add_charger_screen.dart';
 import 'map_screen.dart';
 import 'user_picker_screen.dart';
 
@@ -23,6 +25,7 @@ class HostDashboardScreen extends StatefulWidget {
 
 class _HostDashboardScreenState extends State<HostDashboardScreen> {
   HostDashboard? _data;
+  List<Charger> _chargers = const [];
   String? _error;
   final Set<int> _busy = {};
   Timer? _poll;
@@ -42,10 +45,12 @@ class _HostDashboardScreenState extends State<HostDashboardScreen> {
 
   Future<void> _load() async {
     try {
-      final data = await api.hostDashboard(widget.user.id);
+      // Independent requests, fetched at once. Future.wait rethrows the original ApiException.
+      final results = await Future.wait([api.hostDashboard(widget.user.id), api.hostChargers(widget.user.id)]);
       if (mounted) {
         setState(() {
-          _data = data;
+          _data = results[0] as HostDashboard;
+          _chargers = results[1] as List<Charger>;
           _error = null;
         });
       }
@@ -69,9 +74,22 @@ class _HostDashboardScreenState extends State<HostDashboardScreen> {
     }
   }
 
+  Future<void> _addCharger() async {
+    final added = await Navigator.of(context)
+        .push<bool>(MaterialPageRoute(builder: (_) => AddChargerScreen(user: widget.user)));
+    if (added == true && mounted) await _load();
+  }
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
+      floatingActionButton: FloatingActionButton.extended(
+        backgroundColor: VoltraColors.darkGreen,
+        foregroundColor: Colors.white,
+        icon: const Icon(Icons.add_location_alt_outlined),
+        label: const Text('Add charger'),
+        onPressed: _addCharger,
+      ),
       appBar: AppBar(
         title: Text('Host · ${widget.user.name}'),
         actions: [
@@ -101,7 +119,7 @@ class _HostDashboardScreenState extends State<HostDashboardScreen> {
 
   Widget _buildBody(HostDashboard d) {
     return ListView(
-      padding: const EdgeInsets.all(16),
+      padding: const EdgeInsets.fromLTRB(16, 16, 16, 96), // room above the Add charger button
       children: [
         const Text('Today', style: TextStyle(fontSize: 18, fontWeight: FontWeight.w700)),
         const SizedBox(height: 8),
@@ -143,6 +161,12 @@ class _HostDashboardScreenState extends State<HostDashboardScreen> {
                 ),
               ),
             ),
+        const SizedBox(height: 20),
+        _sectionTitle('My chargers', _chargers.length),
+        if (_chargers.isEmpty)
+          const _Empty('No chargers yet. Tap “Add charger” to list your first one.')
+        else
+          for (final c in _chargers) _MyChargerCard(charger: c),
       ],
     );
   }
@@ -151,6 +175,52 @@ class _HostDashboardScreenState extends State<HostDashboardScreen> {
     padding: const EdgeInsets.only(bottom: 8),
     child: Text('$title ($count)', style: const TextStyle(fontSize: 18, fontWeight: FontWeight.w700)),
   );
+}
+
+class _MyChargerCard extends StatelessWidget {
+  const _MyChargerCard({required this.charger});
+
+  final Charger charger;
+
+  @override
+  Widget build(BuildContext context) {
+    final c = charger;
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 8),
+      child: Card(
+        child: Padding(
+          padding: const EdgeInsets.all(16),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Row(
+                children: [
+                  Expanded(
+                    child: Text(c.name, style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w700)),
+                  ),
+                  Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                    decoration: BoxDecoration(color: VoltraColors.navy, borderRadius: BorderRadius.circular(8)),
+                    child: Text(
+                      c.deviceId,
+                      style: const TextStyle(color: Colors.white, fontWeight: FontWeight.w700, letterSpacing: 1),
+                    ),
+                  ),
+                ],
+              ),
+              const SizedBox(height: 6),
+              Text(
+                '${c.connectorLabel} · ${pricePerKwh(c.basePricePaise)} · open ${c.availableFrom}–${c.availableTo}',
+                style: const TextStyle(color: VoltraColors.muted),
+              ),
+              const SizedBox(height: 8),
+              ConfidenceBadge(confidence: c.confidence, online: c.online),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
 }
 
 class _StatTile extends StatelessWidget {

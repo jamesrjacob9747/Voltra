@@ -32,9 +32,16 @@ class VoltraApi {
 
   String get baseUrl => _base.toString();
 
-  Future<dynamic> _send(String method, String path, {Map<String, String>? query, Object? body}) async {
+  Future<dynamic> _send(
+    String method,
+    String path, {
+    Map<String, String>? query,
+    Object? body,
+    bool admin = false,
+  }) async {
     final uri = _base.replace(path: path, queryParameters: query);
     final request = http.Request(method, uri);
+    if (admin && adminToken.isNotEmpty) request.headers['X-Admin-Token'] = adminToken;
     if (body != null) {
       request.headers['Content-Type'] = 'application/json';
       request.body = jsonEncode(body);
@@ -46,6 +53,10 @@ class VoltraApi {
         final detail = decoded is Map ? decoded['detail'] : null;
         if (detail is Map<String, dynamic> && detail['code'] == 'CHARGER_OFFLINE') {
           throw ApiException('This charger is offline right now.', code: 'CHARGER_OFFLINE', data: detail);
+        }
+        // FastAPI validation errors (422) arrive as a list: show the first message.
+        if (detail is List && detail.isNotEmpty && detail.first is Map && detail.first['msg'] is String) {
+          throw ApiException(detail.first['msg'] as String);
         }
         throw ApiException(detail is String ? detail : 'Server error ${resp.statusCode}');
       }
@@ -180,7 +191,7 @@ class VoltraApi {
       (await _send('POST', '/payments/$bookingId/order') as Map<String, dynamic>)['mode'] as String;
 
   Future<Bill> demoPay(int bookingId) async =>
-      Bill.fromJson(await _send('POST', '/payments/$bookingId/demo-pay') as Map<String, dynamic>);
+      Bill.fromJson(await _send('POST', '/payments/$bookingId/demo-pay', admin: true) as Map<String, dynamic>);
 
   Future<void> submitReview({
     required int bookingId,
@@ -193,11 +204,49 @@ class VoltraApi {
     body: {'booking_id': bookingId, 'reviewer_id': reviewerId, 'rating': rating, 'tags': tags},
   );
 
+  /// Host adds a charger. The response carries the new code (e.g. CHG009) drivers type to start.
+  Future<Charger> createCharger({
+    required int hostId,
+    required String name,
+    required String address,
+    required double lat,
+    required double lng,
+    required String connectorType,
+    required double powerKw,
+    required int pricePerKwhPaise,
+    required String availableFrom,
+    required String availableTo,
+    required bool autoApprove,
+  }) async => Charger.fromJson(
+    await _send(
+      'POST',
+      '/chargers',
+      body: {
+        'host_id': hostId,
+        'name': name,
+        'address': address,
+        'lat': lat,
+        'lng': lng,
+        'connector_type': connectorType,
+        'power_kw': powerKw,
+        'base_price_per_kwh_paise': pricePerKwhPaise,
+        'available_from': availableFrom,
+        'available_to': availableTo,
+        'auto_approve': autoApprove,
+      },
+    ) as Map<String, dynamic>,
+  );
+
+  Future<List<Charger>> hostChargers(int hostId) async {
+    final list = await _get('/host/$hostId/chargers') as List<dynamic>;
+    return list.map((j) => Charger.fromJson(j as Map<String, dynamic>)).toList();
+  }
+
   // Stage demo controls.
   Future<void> setPlugOnline(String deviceId, bool online) =>
-      _send('POST', '/admin/plugs/$deviceId/online', body: {'online': online});
+      _send('POST', '/admin/plugs/$deviceId/online', body: {'online': online}, admin: true);
 
-  Future<void> resetDemo() => _send('POST', '/admin/reset');
+  Future<void> resetDemo() => _send('POST', '/admin/reset', admin: true);
 }
 
 const qrPrefix = 'voltra://charger/';

@@ -4,7 +4,7 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from sqlalchemy import select
 
-from .db import Base, SessionLocal, engine
+from .db import SessionLocal, create_schema
 from .models import User
 from .routers import admin, bookings, chargers, host, match, payments, reviews, sessions, telemetry, users
 from .seed import seed
@@ -13,7 +13,7 @@ from .services import plug
 
 @asynccontextmanager
 async def lifespan(_: FastAPI):
-    Base.metadata.create_all(engine)
+    create_schema()
     with SessionLocal() as db:
         if db.scalar(select(User.id)) is None:
             seed(db)

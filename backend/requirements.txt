@@ -3,4 +3,5 @@ uvicorn[standard]>=0.32
 sqlalchemy>=2.0.36
 python-dotenv>=1.0
 httpx>=0.27            # Razorpay API calls
-psycopg[binary]>=3.2   # Postgres/Supabase driver, used when DATABASE_URL is postgresql+psycopg://
+psycopg[binary]>=3.2   # Postgres/Supabase driver, used when DATABASE_URL is a Postgres URL
+tzdata>=2024.1         # timezone data for TIMEZONE (Windows ships none)

@@ -1,5 +1,7 @@
+from uuid import uuid4
+
 from fastapi import APIRouter, Depends, HTTPException
-from sqlalchemy import func, select
+from sqlalchemy import select
 from sqlalchemy.orm import Session
 
 from ..db import get_db
@@ -51,13 +53,20 @@ def get_charger(charger_id: int, user_id: int | None = None, db: Session = Depen
 
 @router.post("", status_code=201)
 def create_charger(body: ChargerCreate, db: Session = Depends(get_db)):
-    if db.get(User, body.host_id) is None:
+    host = db.get(User, body.host_id)
+    if host is None:
         raise HTTPException(404, "Host not found")
+    if host.role not in ("host", "both"):
+        raise HTTPException(403, "Only hosts can add chargers")
+
     alat, alng = approximate_location(body.lat, body.lng)
-    next_no = (db.scalar(select(func.max(Charger.id))) or 0) + 1
+    # The code comes from the id the database assigns, so it is unique even when ids skip
+    # numbers or two hosts add a charger at the same moment.
     charger = Charger(
-        **body.model_dump(), approx_lat=alat, approx_lng=alng, device_id=f"CHG{next_no:03d}", verified=False
+        **body.model_dump(), approx_lat=alat, approx_lng=alng, device_id=f"NEW-{uuid4().hex[:12]}", verified=False
     )
     db.add(charger)
+    db.flush()
+    charger.device_id = f"CHG{charger.id:03d}"
     db.commit()
     return charger_view(db, charger, plug.clock(), exact=True)

@@ -1,22 +1,31 @@
 from datetime import datetime
 from typing import Literal
 
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, model_validator
+
+HHMM = r"^([01]\d|2[0-3]):[0-5]\d$"
 
 
 class ChargerCreate(BaseModel):
     host_id: int
-    name: str
-    lat: float
-    lng: float
-    address: str
+    name: str = Field(min_length=3, max_length=80)
+    # Rough bounding box of India: catches swapped or zeroed coordinates.
+    lat: float = Field(ge=6.0, le=37.5)
+    lng: float = Field(ge=68.0, le=97.5)
+    address: str = Field(min_length=5, max_length=160)
     connector_type: Literal["15A", "TYPE2", "CCS2"]
-    power_kw: float = Field(gt=0)
-    base_price_per_kwh_paise: int = Field(gt=0)
-    available_from: str = "00:00"
-    available_to: str = "23:59"
+    power_kw: float = Field(ge=0.5, le=22)
+    base_price_per_kwh_paise: int = Field(ge=500, le=5000)  # ₹5–₹50 per kWh
+    available_from: str = Field(default="00:00", pattern=HHMM)
+    available_to: str = Field(default="23:59", pattern=HHMM)
     auto_approve: bool = True
     image_url: str | None = None
+
+    @model_validator(mode="after")
+    def _opens_before_it_closes(self):
+        if self.available_from >= self.available_to:  # zero-padded HH:MM compares correctly as text
+            raise ValueError("available_from must be earlier than available_to")
+        return self
 
 
 class MatchRequest(BaseModel):

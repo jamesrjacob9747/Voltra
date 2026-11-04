@@ -2,7 +2,20 @@
 
 Everything you need on demo day: set up, run the 5-minute pitch with the live demo, and recover if something breaks.
 
-## 1. Before you present (15 minutes)
+## 1. Before you present
+
+### Option A: hosted (recommended once deployed; no laptop needed)
+
+1. **Wake the server** 2 minutes before you start: open `https://YOUR-SERVICE.onrender.com/health` until it shows `"ok": true`. The free plan sleeps after 15 idle minutes, and the first request takes 30–60 s.
+2. **Phone:** the release app built for the hosted API (README → Deploy) is already installed. Mobile data or any Wi-Fi works.
+3. **Reset:** in the app, **Demo controls → Reset all demo data**. This works because the app was built with your admin token.
+4. Steps 6–7 below (stickers and backup video) still apply.
+
+If the hosted server misbehaves, switch to Option B.
+
+### Option B: laptop (15 minutes; fallback)
+
+Use local SQLite for speed: in `backend/.env`, comment out the Supabase `DATABASE_URL` line.
 
 1. **Network:** connect the laptop and the demo phone to the **same Wi-Fi or hotspot**. Avoid networks with HTTPS inspection (college/office firewalls): the map tiles won't load.
 2. **Start the backend** (leave this terminal open):
@@ -20,7 +33,7 @@ Everything you need on demo day: set up, run the 5-minute pitch with the live de
    cd app
    flutter run --dart-define=API_URL=http://LAPTOP_IP:8000
    ```
-   On the emulator, plain `flutter run` is enough (it uses `10.0.2.2`).
+   On the emulator, plain `flutter run` is enough (it uses `10.0.2.2`). Use `flutter run` (a debug build): release builds only talk HTTPS and can't reach the laptop.
 5. **Reset the demo data:** in the app, **Demo controls → Reset all demo data**.
 6. **Print or show the QR stickers:** open `qr/index.html`. You need CHG001 (Manoj) and CHG002 (Rahul).
 7. **Have the backup ready:** the screen recordings from rehearsal (see section 4), open in a video player.

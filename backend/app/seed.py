@@ -1,10 +1,11 @@
 """Demo data around Koramangala, Bengaluru. Run: python -m app.seed"""
 
-from datetime import datetime, timedelta
+from datetime import timedelta
 
 from sqlalchemy.orm import Session
 
-from .db import Base, SessionLocal, engine
+from .config import local_now
+from .db import Base, SessionLocal, create_schema, engine
 from .models import Charger, User, Vehicle
 from .services.geo import approximate_location
 
@@ -41,7 +42,7 @@ def seed(db: Session) -> None:
         ]
     )
 
-    now = datetime.now()
+    now = local_now()
     for i, (name, h, lat, lng, conn, kw, rs, auto, sess, ok, books, cancels, rating) in enumerate(CHARGERS, 1):
         alat, alng = approximate_location(lat, lng)
         db.add(
@@ -71,7 +72,7 @@ def seed(db: Session) -> None:
 
 def reset_and_seed() -> None:
     Base.metadata.drop_all(engine)
-    Base.metadata.create_all(engine)
+    create_schema()  # recreated tables need row level security again on Postgres
     with SessionLocal() as db:
         seed(db)
 
