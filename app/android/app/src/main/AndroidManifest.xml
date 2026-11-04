@@ -1,11 +1,11 @@
 <manifest xmlns:android="http://schemas.android.com/apk/res/android">
     <uses-permission android:name="android.permission.INTERNET"/>
-    <!-- usesCleartextTraffic: the hackathon backend runs on the laptop over plain HTTP. -->
+    <!-- Release builds use HTTPS only (the hosted API). Plain HTTP to a laptop backend is
+         allowed in debug builds: see src/debug/AndroidManifest.xml. -->
     <application
         android:label="Voltra"
         android:name="${applicationName}"
-        android:icon="@mipmap/ic_launcher"
-        android:usesCleartextTraffic="true">
+        android:icon="@mipmap/ic_launcher">
         <activity
             android:name=".MainActivity"
             android:exported="true"

@@ -34,6 +34,15 @@ def test_demo_endpoints_can_be_switched_off(client, monkeypatch):
     assert client.post("/payments/1/demo-pay").status_code == 404
 
 
+def test_admin_token_required_when_set(client, monkeypatch):
+    monkeypatch.setattr(admin, "settings", replace(admin.settings, admin_token="s3cret-token"))
+    url, body = "/admin/plugs/CHG001/online", {"online": True}
+    assert client.post(url, json=body).status_code == 403
+    assert client.post(url, json=body, headers={"X-Admin-Token": "wrong"}).status_code == 403
+    assert client.post(url, json=body, headers={"X-Admin-Token": "s3cret-token"}).status_code == 200
+    assert client.post("/payments/1/demo-pay").status_code == 403  # demo payment is guarded too
+
+
 def test_razorpay_verify_refuses_without_keys(client):
     resp = client.post(
         "/payments/verify",
@@ -146,6 +155,57 @@ def test_host_dashboard_counts_only_todays_live_bookings(client):
     dash = client.get(f"/host/{MANOJ}/dashboard").json()
     assert dash["today"]["bookings"] == 1
     assert [b["id"] for b in dash["upcoming"]][0] == arrived["id"]  # arrived drivers stay visible
+
+
+NEW_CHARGER = {
+    "host_id": MANOJ,
+    "name": "Manoj's Office Socket",
+    "lat": 12.9340,
+    "lng": 77.6260,
+    "address": "3rd Floor, 80 Feet Road, Koramangala",
+    "connector_type": "15A",
+    "power_kw": 3.3,
+    "base_price_per_kwh_paise": 1300,
+    "available_from": "08:00",
+    "available_to": "20:00",
+    "auto_approve": True,
+}
+
+
+def test_host_adds_a_charger_that_drivers_can_book_and_start(client, clock):
+    resp = client.post("/chargers", json=NEW_CHARGER)
+    assert resp.status_code == 201, resp.text
+    charger = resp.json()
+    assert charger["device_id"] == "CHG009"  # next after the 8 seeded chargers
+    assert charger["verified"] is False and charger["location"]["exact"] is True
+
+    mine = client.get(f"/host/{MANOJ}/chargers").json()
+    assert [c["device_id"] for c in mine] == ["CHG001", "CHG007", "CHG009"]
+    public = client.get("/chargers", params={"lat": 12.9340, "lng": 77.6260}).json()
+    listed = next(c for c in public if c["id"] == charger["id"])
+    assert listed["location"]["exact"] is False  # the public pin stays approximate
+
+    booking = _book(client, charger_id=charger["id"])
+    start = client.post("/sessions/start", json={"booking_id": booking["id"], "qr": "voltra://charger/CHG009"})
+    assert start.status_code == 201, start.text
+
+
+def test_only_hosts_can_add_chargers(client):
+    assert client.post("/chargers", json={**NEW_CHARGER, "host_id": ARJUN}).status_code == 403
+    assert client.post("/chargers", json={**NEW_CHARGER, "host_id": 999}).status_code == 404
+
+
+def test_add_charger_rejects_bad_input(client):
+    bad = [
+        {"base_price_per_kwh_paise": 0},
+        {"power_kw": 0},
+        {"available_from": "20:00", "available_to": "08:00"},
+        {"available_to": "24:00"},
+        {"lat": 0.0, "lng": 0.0},
+        {"name": "A"},
+    ]
+    for override in bad:
+        assert client.post("/chargers", json={**NEW_CHARGER, **override}).status_code == 422, override
 
 
 def test_chargesure_moves_booking_when_charger_goes_offline(client):

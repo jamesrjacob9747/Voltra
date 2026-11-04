@@ -29,8 +29,9 @@ uvicorn app.main:app --host 0.0.0.0 --port 8000
 - The first start creates the tables and seeds demo data (5 users, 8 chargers around Koramangala, Bengaluru).
 - Interactive API docs: http://localhost:8000/docs
 - A phone on the same Wi-Fi reaches it at `http://<laptop LAN IP>:8000`.
-- SQLite by default. For Supabase, set `DATABASE_URL` in `.env` (see `.env.example`).
-- `DEMO_ENDPOINTS=false` in `.env` turns off the unauthenticated demo controls (`/admin/*`, demo payment) for any non-demo deployment.
+- SQLite by default. For Supabase, set `DATABASE_URL` in `.env` to the **Session pooler** URI (see `.env.example`). The laptop is far from Supabase's servers, so requests are slower locally than when hosted. Comment the line out to go back to SQLite.
+- On Postgres, startup also switches on row level security for every table, which closes Supabase's public REST API to these tables. The server's own connection keeps full access.
+- `DEMO_ENDPOINTS=false` turns off the demo controls (`/admin/*`, demo payment). With `ADMIN_TOKEN` set, they require that value in an `X-Admin-Token` header.
 
 Tests and lint (dev tools are in `requirements-dev.txt`):
 
@@ -52,6 +53,8 @@ flutter run                                              # emulator: reaches the
 flutter run --dart-define=API_URL=http://LAPTOP_IP:8000  # real phone on the same Wi-Fi
 ```
 
+Debug builds may use plain HTTP (the laptop). **Release builds are HTTPS-only**, so build them for the hosted API (see [Deploy](#deploy)).
+
 ```bash
 flutter test      # unit tests
 flutter analyze
@@ -66,6 +69,10 @@ flutter analyze
 | Arjun | 5 | Driver (Ather 450X: 3.0 kWh battery, 0.75 kW charger) |
 
 Each charger's QR code is `voltra://charger/CHG001` … `CHG008`. CHG002 (Rahul) is about 350 m from CHG001 (Manoj), for the ChargeSure demo.
+
+## Hosts add chargers
+
+On the host dashboard, **Add charger** opens a form: name, address, a pin placed on the map, connector, max power, price per kWh, opening hours and instant booking. The new charger gets the next code (`CHG009`, …), which the app shows straight away. The host writes it next to the socket, and drivers type it with **Enter code** on the scan screen to start charging. New chargers are listed as unverified, and drivers see only an approximate pin until their booking is confirmed. Hosts see all their chargers, with codes, under **My chargers**.
 
 ## Demo controls
 
@@ -95,6 +102,8 @@ In the app: **Demo controls** on the login screen (charger on/off switches, rese
 | POST | `/payments/{booking_id}/order`, `/payments/verify`, `/payments/{booking_id}/demo-pay` | Razorpay test mode, or demo fallback |
 | POST | `/reviews` | Two-way ratings |
 | GET | `/host/{id}/dashboard` | Requests, upcoming, today's kWh and earnings, live session |
+| POST | `/chargers` | Host adds a charger (hosts only; validated); returns its new code |
+| GET | `/host/{id}/chargers` | The host's own chargers, with codes and exact location |
 
 ## How the numbers work
 
@@ -103,6 +112,34 @@ In the app: **Demo controls** on the login screen (charger on/off switches, rese
 - **ChargeMatch** weights: distance 30, availability 25, reliability 20, price 15, power 10.
 - **Charging Confidence**: IoT online 30, host confirmed 20, successful sessions 20, cancellation rate 10, recent activity 10, availability 10.
 - **Time-of-day pricing**: +20% from 18:00 to 22:00, −20% from 00:00 to 06:00.
+
+## Deploy
+
+The backend runs on **Render** (free web service) and the database on **Supabase**, both in **Singapore**, so each database query takes 1–2 ms.
+
+1. **Supabase:** create a project in Southeast Asia (Singapore). Copy **Connect → Session pooler** as the `DATABASE_URL`.
+2. **Render** → New → Web Service → this GitHub repo:
+
+   | Setting | Value |
+   |---|---|
+   | Region | Singapore |
+   | Branch | `main` |
+   | Root Directory | `backend` |
+   | Runtime | Python 3 |
+   | Build Command | `pip install -r requirements.txt` |
+   | Start Command | `uvicorn app.main:app --host 0.0.0.0 --port $PORT` |
+   | Health Check Path | `/health` |
+   | Instance Type | Free |
+
+3. **Environment variables** on Render: `DATABASE_URL`, `ADMIN_TOKEN` (long random value), `TIMEZONE=Asia/Kolkata`, `DEMO_SPEED=30`, `DEMO_ENDPOINTS=true`, `PYTHON_VERSION=3.12.8`. Secrets live only in Render's dashboard and your local `backend/.env`, never in git.
+4. **App for the hosted API:**
+   ```bash
+   cd app
+   flutter build apk --release --split-per-abi --dart-define=API_URL=https://YOUR-SERVICE.onrender.com --dart-define=ADMIN_TOKEN=YOUR_TOKEN
+   ```
+   Install `build/app/outputs/flutter-apk/app-arm64-v8a-release.apk` on the phone.
+
+Every merge to `main` redeploys. The free instance sleeps after 15 idle minutes, and its first request then takes 30–60 s. Open `/health` a couple of minutes before a demo.
 
 ## Hardware
 

@@ -3,6 +3,7 @@ from datetime import datetime
 from sqlalchemy import Boolean, DateTime, Float, ForeignKey, Integer, String
 from sqlalchemy.orm import Mapped, mapped_column
 
+from .config import local_now
 from .db import Base
 
 # Booking states (PRD section 9, F7)
@@ -24,7 +25,7 @@ class User(Base):
     role: Mapped[str] = mapped_column(String(10))  # driver | host | both
     rating: Mapped[float] = mapped_column(Float, default=5.0)
     kyc_status: Mapped[str] = mapped_column(String(12), default="VERIFIED")  # mocked in MVP
-    created_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.now)
+    created_at: Mapped[datetime] = mapped_column(DateTime, default=local_now)
 
 
 class Vehicle(Base):
@@ -77,7 +78,7 @@ class Booking(Base):
     status: Mapped[str] = mapped_column(String(10), default=PENDING)
     transferred_from_booking_id: Mapped[int | None] = mapped_column(ForeignKey("bookings.id"), nullable=True)
     credit_paise: Mapped[int] = mapped_column(Integer, default=0)
-    created_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.now)
+    created_at: Mapped[datetime] = mapped_column(DateTime, default=local_now)
 
 
 class ChargingSession(Base):
@@ -87,7 +88,7 @@ class ChargingSession(Base):
     price_per_kwh_paise: Mapped[int] = mapped_column(Integer)  # locked at start
     meter_start_kwh: Mapped[float] = mapped_column(Float)
     meter_end_kwh: Mapped[float | None] = mapped_column(Float, nullable=True)
-    started_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.now)
+    started_at: Mapped[datetime] = mapped_column(DateTime, default=local_now)
     ended_at: Mapped[datetime | None] = mapped_column(DateTime, nullable=True)
     peak_kw: Mapped[float] = mapped_column(Float, default=0.0)
 
@@ -115,14 +116,14 @@ class Review(Base):
     rating: Mapped[int] = mapped_column(Integer)
     tags: Mapped[str] = mapped_column(String(200), default="")
     comment: Mapped[str] = mapped_column(String(500), default="")
-    created_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.now)
+    created_at: Mapped[datetime] = mapped_column(DateTime, default=local_now)
 
 
 class Telemetry(Base):
     __tablename__ = "telemetry"
     id: Mapped[int] = mapped_column(primary_key=True)
     device_id: Mapped[str] = mapped_column(String(20), index=True)
-    ts: Mapped[datetime] = mapped_column(DateTime, default=datetime.now)
+    ts: Mapped[datetime] = mapped_column(DateTime, default=local_now)
     voltage: Mapped[float] = mapped_column(Float)
     current: Mapped[float] = mapped_column(Float)
     power_w: Mapped[float] = mapped_column(Float)

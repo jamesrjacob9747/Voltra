@@ -5,14 +5,13 @@ Only SimulatedPlug exists for now. A ShellyPlug(ip) using the plug's local HTTP 
 """
 
 from dataclasses import dataclass
-from datetime import datetime
 
-from ..config import settings
+from ..config import local_now, settings
 
 NOMINAL_VOLTAGE = 230.0
 
-# Swappable for tests.
-clock = datetime.now
+# Swappable for tests. Wall-clock time in settings.timezone, so a UTC server still bills Indian time.
+clock = local_now
 demo_speed = settings.demo_speed
 
 

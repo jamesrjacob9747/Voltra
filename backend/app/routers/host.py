@@ -7,10 +7,23 @@ from sqlalchemy.orm import Session
 from ..db import get_db
 from ..models import ARRIVED, CANCELLED, CHARGING, CONFIRMED, PENDING, Booking, Charger, ChargingSession, Payment, User
 from ..services import plug
+from ..services.chargers import charger_view
 from .bookings import booking_view
 from .sessions import live_view
 
 router = APIRouter(prefix="/host", tags=["host"])
+
+
+@router.get("/{host_id}/chargers")
+def host_chargers(host_id: int, db: Session = Depends(get_db)):
+    """The host's own chargers, with exact location and the code drivers type to start."""
+    if db.get(User, host_id) is None:
+        raise HTTPException(404, "Host not found")
+    now = plug.clock()
+    chargers = db.scalars(select(Charger).where(Charger.host_id == host_id).order_by(Charger.id)).all()
+    views = [charger_view(db, c, now, exact=True) for c in chargers]
+    db.commit()  # persist refreshed heartbeats
+    return views
 
 
 @router.get("/{host_id}/dashboard")
