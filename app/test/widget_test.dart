@@ -15,6 +15,42 @@ void main() {
     expect(distance(2.04), '2.0 km');
   });
 
+  test('time helpers match what the backend expects and shows', () {
+    final t = DateTime(2026, 11, 4, 16, 38);
+    expect(clock(t), '4:38 PM');
+    expect(clock(DateTime(2026, 11, 4, 0, 5)), '12:05 AM');
+    expect(isoMinute(t), '2026-11-04T16:38');
+    expect(minutes(147), '2 h 27 min');
+    expect(minutes(45), '45 min');
+  });
+
+  test('Booking and MatchEstimate parse server payloads', () {
+    final b = Booking.fromJson({
+      'id': 3,
+      'status': 'PENDING',
+      'charger': {'id': 7, 'name': 'Ejipura Garage Socket', 'device_id': 'CHG007'},
+      'driver': {'id': 5, 'name': 'Arjun'},
+      'vehicle_id': 1,
+      'start_time': '2026-11-04T14:05',
+      'end_time': '2026-11-04T16:05',
+      'credit_paise': 0,
+      'transferred_from_booking_id': null,
+    });
+    expect(b.start, DateTime(2026, 11, 4, 14, 5));
+    expect(b.canCancel, isTrue);
+    expect(b.isActive, isTrue);
+
+    final e = MatchEstimate.fromJson({
+      'energy_kwh': 1.83,
+      'power_kw': 0.75,
+      'charge_minutes': 147,
+      'arrive_at': '2026-11-04T12:10',
+      'finish_at': '2026-11-04T14:37',
+      'est_cost_paise': 2200,
+    });
+    expect(e.finishAt.difference(e.arriveAt).inMinutes, 147);
+  });
+
   test('Charger parses the /chargers payload', () {
     final c = Charger.fromJson({
       'id': 1,

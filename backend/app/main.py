@@ -8,6 +8,7 @@ from .db import Base, SessionLocal, engine
 from .models import User
 from .routers import admin, bookings, chargers, host, match, payments, reviews, sessions, telemetry, users
 from .seed import seed
+from .services import plug
 
 
 @asynccontextmanager
@@ -28,4 +29,5 @@ for module in (users, chargers, match, bookings, sessions, payments, reviews, ho
 
 @app.get("/health")
 def health():
-    return {"ok": True}
+    # Booking times are server-local wall clock; the app anchors its own clock to this.
+    return {"ok": True, "server_time": plug.clock().isoformat(timespec="seconds")}

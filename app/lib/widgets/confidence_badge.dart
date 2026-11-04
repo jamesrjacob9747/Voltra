@@ -28,11 +28,17 @@ class ConfidenceBadge extends StatelessWidget {
         borderRadius: BorderRadius.circular(999),
         border: Border.all(color: color.withValues(alpha: 0.5)),
       ),
-      child: Row(mainAxisSize: MainAxisSize.min, children: [
-        Icon(online ? Icons.bolt : Icons.power_off, size: 16, color: color),
-        const SizedBox(width: 4),
-        Text(label, style: TextStyle(color: color, fontWeight: FontWeight.w600, fontSize: 13)),
-      ]),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Icon(online ? Icons.bolt : Icons.power_off, size: 16, color: color),
+          const SizedBox(width: 4),
+          Text(
+            label,
+            style: TextStyle(color: color, fontWeight: FontWeight.w600, fontSize: 13),
+          ),
+        ],
+      ),
     );
   }
 }
