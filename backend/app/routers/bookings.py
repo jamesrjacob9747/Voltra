@@ -6,7 +6,7 @@ from sqlalchemy.orm import Session
 
 from ..config import settings
 from ..db import get_db
-from ..models import ARRIVED, CANCELLED, CONFIRMED, PENDING, Booking, Charger, User, Vehicle
+from ..models import ARRIVED, CANCELLED, CONFIRMED, PENDING, Booking, Charger, ChargingSession, User, Vehicle
 from ..schemas import BookingAction, BookingCreate, TransferRequest
 from ..services import plug
 from ..services.chargers import alternatives_for, is_online, slot_free
@@ -27,6 +27,8 @@ def booking_view(db: Session, b: Booking) -> dict:
         "end_time": b.end_time.isoformat(timespec="minutes"),
         "credit_paise": b.credit_paise,
         "transferred_from_booking_id": b.transferred_from_booking_id,
+        # Lets the app reopen the live screen or the bill for this booking.
+        "session_id": db.scalar(select(ChargingSession.id).where(ChargingSession.booking_id == b.id)),
     }
 
 

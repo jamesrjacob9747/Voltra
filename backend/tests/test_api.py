@@ -51,14 +51,17 @@ def test_full_journey_bills_from_the_meter(client, clock):
     wrong = client.post("/sessions/start", json={"booking_id": booking["id"], "qr": "voltra://charger/CHG002"})
     assert wrong.status_code == 409
 
+    assert booking["session_id"] is None
     start = client.post("/sessions/start", json={"booking_id": booking["id"], "qr": "voltra://charger/CHG001"})
     assert start.status_code == 201, start.text
     session_id = start.json()["session_id"]
+    assert client.get(f"/bookings/{booking['id']}").json()["session_id"] == session_id
 
     # Ather draws 0.75 kW; 148 minutes = 1.85 kWh.
     clock.advance(minutes=148)
     live = client.get(f"/sessions/{session_id}/live").json()
     assert live["energy_kwh"] == 1.85 and live["power_kw"] == 0.75
+    assert live["duration_s"] == 148 * 60  # demo_speed is 1 in tests
 
     stopped = client.post(f"/sessions/{session_id}/stop").json()
     assert stopped["bill"] == {"energy_kwh": 1.85, "total_paise": 2220, "platform_fee_paise": 333,

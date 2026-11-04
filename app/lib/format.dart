@@ -1,8 +1,9 @@
 /// Money is integer paise everywhere, matching the backend.
-String rupees(int paise) {
+/// "₹12" for round prices; [exact] always shows paise ("₹1.00"), for amounts that count up.
+String rupees(int paise, {bool exact = false}) {
   final whole = paise ~/ 100;
   final rest = paise % 100;
-  return rest == 0 ? '₹$whole' : '₹$whole.${rest.toString().padLeft(2, '0')}';
+  return rest == 0 && !exact ? '₹$whole' : '₹$whole.${rest.toString().padLeft(2, '0')}';
 }
 
 String pricePerKwh(int paise) => '${rupees(paise)}/kWh';
@@ -27,6 +28,12 @@ String minutes(int total) {
 String isoMinute(DateTime t) {
   String two(int n) => n.toString().padLeft(2, '0');
   return '${t.year}-${two(t.month)}-${two(t.day)}T${two(t.hour)}:${two(t.minute)}';
+}
+
+/// Stopwatch style: "00:42:18"
+String elapsed(int seconds) {
+  String two(int n) => n.toString().padLeft(2, '0');
+  return '${two(seconds ~/ 3600)}:${two(seconds % 3600 ~/ 60)}:${two(seconds % 60)}';
 }
 
 String heartbeatAge(int seconds) {

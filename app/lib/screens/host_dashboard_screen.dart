@@ -287,7 +287,7 @@ class _LiveSessionCard extends StatelessWidget {
               children: [
                 _liveStat('Power', '${session['power_kw']} kW'),
                 _liveStat('Energy', '${session['energy_kwh']} kWh'),
-                _liveStat('So far', rupees(session['cost_paise'] as int)),
+                _liveStat('So far', rupees(session['cost_paise'] as int, exact: true)),
               ],
             ),
           ],

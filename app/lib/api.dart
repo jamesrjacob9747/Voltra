@@ -10,7 +10,12 @@ import 'models.dart';
 
 class ApiException implements Exception {
   final String message;
-  const ApiException(this.message);
+
+  /// Machine-readable code when the server sends one, e.g. CHARGER_OFFLINE (with ChargeSure data).
+  final String? code;
+  final Map<String, dynamic>? data;
+
+  const ApiException(this.message, {this.code, this.data});
 
   @override
   String toString() => message;
@@ -39,6 +44,9 @@ class VoltraApi {
       final decoded = resp.body.isEmpty ? null : jsonDecode(utf8.decode(resp.bodyBytes));
       if (resp.statusCode >= 400) {
         final detail = decoded is Map ? decoded['detail'] : null;
+        if (detail is Map<String, dynamic> && detail['code'] == 'CHARGER_OFFLINE') {
+          throw ApiException('This charger is offline right now.', code: 'CHARGER_OFFLINE', data: detail);
+        }
         throw ApiException(detail is String ? detail : 'Server error ${resp.statusCode}');
       }
       return decoded;
@@ -144,6 +152,21 @@ class VoltraApi {
 
   Future<HostDashboard> hostDashboard(int hostId) async =>
       HostDashboard.fromJson(await _get('/host/$hostId/dashboard') as Map<String, dynamic>);
+
+  /// [qr] is the scanned payload, `voltra://charger/<device_id>`.
+  Future<LiveSession> startSession(int bookingId, String qr) async => LiveSession.fromJson(
+    await _send('POST', '/sessions/start', body: {'booking_id': bookingId, 'qr': qr}) as Map<String, dynamic>,
+  );
+
+  Future<LiveSession> liveSession(int sessionId) async =>
+      LiveSession.fromJson(await _get('/sessions/$sessionId/live') as Map<String, dynamic>);
+
+  Future<LiveSession> stopSession(int sessionId) async =>
+      LiveSession.fromJson(await _send('POST', '/sessions/$sessionId/stop') as Map<String, dynamic>);
+
+  Future<Bill> bill(int bookingId) async => Bill.fromJson(await _get('/payments/$bookingId') as Map<String, dynamic>);
 }
+
+const qrPrefix = 'voltra://charger/';
 
 final api = VoltraApi();

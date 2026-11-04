@@ -8,6 +8,9 @@ import '../models.dart';
 import '../theme.dart';
 import '../widgets/booking_status.dart';
 import '../widgets/error_view.dart';
+import 'bill_screen.dart';
+import 'live_session_screen.dart';
+import 'scan_screen.dart';
 
 /// One booking from the driver's side. Polls while the host hasn't answered yet.
 class BookingScreen extends StatefulWidget {
@@ -70,6 +73,11 @@ class _BookingScreenState extends State<BookingScreen> {
     } finally {
       if (mounted) setState(() => _busy = false);
     }
+  }
+
+  Future<void> _open(Widget screen) async {
+    await Navigator.of(context).push(MaterialPageRoute(builder: (_) => screen));
+    if (mounted) _load();
   }
 
   Future<void> _confirmCancel() async {
@@ -173,14 +181,11 @@ class _BookingScreenState extends State<BookingScreen> {
                   ),
                 ),
               ),
-              if (b.status == 'CONFIRMED' || b.status == 'ARRIVED') ...[
+              if (b.canStart) ...[
                 const SizedBox(height: 16),
-                const Card(
-                  child: ListTile(
-                    leading: Icon(Icons.qr_code_scanner, color: VoltraColors.grey),
-                    title: Text('Scan the charger’s QR to start'),
-                    subtitle: Text('Arrives in the next build.'),
-                  ),
+                const Text(
+                  'At the charger: plug in, then scan the QR sticker to switch the power on.',
+                  style: TextStyle(color: VoltraColors.muted),
                 ),
               ],
             ],
@@ -193,11 +198,32 @@ class _BookingScreenState extends State<BookingScreen> {
             child: Column(
               mainAxisSize: MainAxisSize.min,
               children: [
-                if (b.status == 'CONFIRMED')
+                if (b.canStart)
                   FilledButton.icon(
+                    icon: const Icon(Icons.qr_code_scanner),
+                    label: const Text('Scan QR to start charging'),
+                    onPressed: _busy ? null : () => _open(ScanScreen(booking: b, user: widget.user)),
+                  ),
+                if (b.status == 'CONFIRMED') ...[
+                  const SizedBox(height: 8),
+                  OutlinedButton.icon(
+                    style: OutlinedButton.styleFrom(minimumSize: const Size.fromHeight(48)),
                     icon: const Icon(Icons.place),
                     label: const Text('I’ve arrived'),
                     onPressed: _busy ? null : () => _act('arrive'),
+                  ),
+                ],
+                if (b.status == 'CHARGING' && b.sessionId != null)
+                  FilledButton.icon(
+                    icon: const Icon(Icons.bolt),
+                    label: const Text('View live charging'),
+                    onPressed: () => _open(LiveSessionScreen(sessionId: b.sessionId!, user: widget.user)),
+                  ),
+                if (b.status == 'COMPLETED' && b.sessionId != null)
+                  FilledButton.icon(
+                    icon: const Icon(Icons.receipt_long),
+                    label: const Text('View bill'),
+                    onPressed: () => _open(BillScreen(bookingId: b.id, sessionId: b.sessionId!, user: widget.user)),
                   ),
                 if (b.canCancel) ...[
                   const SizedBox(height: 8),
