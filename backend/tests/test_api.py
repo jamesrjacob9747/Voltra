@@ -17,6 +17,10 @@ def _book(client, charger_id: int, start="2026-11-09T10:05", end="2026-11-09T13:
     return resp.json()
 
 
+def test_health_reports_server_time(client):
+    assert client.get("/health").json() == {"ok": True, "server_time": "2026-11-09T10:00:00"}
+
+
 def test_list_chargers_hides_exact_location(client):
     chargers = client.get("/chargers", params={"lat": MANOJ_LAT, "lng": MANOJ_LNG}).json()
     assert len(chargers) == 8

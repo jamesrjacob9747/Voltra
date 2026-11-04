@@ -5,7 +5,7 @@ import '../api.dart';
 import '../models.dart';
 import '../theme.dart';
 import '../widgets/error_view.dart';
-import 'host_home_screen.dart';
+import 'host_dashboard_screen.dart';
 import 'map_screen.dart';
 
 /// Demo login: pick a seeded user. Phone OTP replaces this later.
@@ -20,7 +20,7 @@ class _UserPickerScreenState extends State<UserPickerScreen> {
   late Future<List<AppUser>> _users = api.users();
 
   void _open(AppUser user) {
-    final screen = user.canDrive ? MapScreen(user: user) : HostHomeScreen(user: user);
+    final screen = user.canDrive ? MapScreen(user: user) : HostDashboardScreen(user: user);
     Navigator.of(context).pushReplacement(MaterialPageRoute(builder: (_) => screen));
   }
 
