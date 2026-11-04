@@ -7,6 +7,7 @@ import '../format.dart';
 import '../models.dart';
 import '../theme.dart';
 import '../widgets/error_view.dart';
+import '../widgets/snack.dart';
 import 'map_screen.dart';
 import 'user_picker_screen.dart';
 
@@ -58,13 +59,11 @@ class _HostDashboardScreenState extends State<HostDashboardScreen> {
     try {
       await api.updateBooking(b.id, action, actorId: widget.user.id);
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text(action == 'accept' ? 'Accepted ${b.driverName}’s booking' : 'Declined the booking')),
-        );
+        showSnack(context, action == 'accept' ? 'Accepted ${b.driverName}’s booking' : 'Declined the booking');
       }
       await _load();
     } on ApiException catch (e) {
-      if (mounted) ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(e.message)));
+      if (mounted) showSnack(context, e.message);
     } finally {
       if (mounted) setState(() => _busy.remove(b.id));
     }

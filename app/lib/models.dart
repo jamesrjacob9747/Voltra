@@ -226,7 +226,6 @@ class Booking {
     );
   }
 
-  bool get isActive => const {'PENDING', 'CONFIRMED', 'ARRIVED', 'CHARGING'}.contains(status);
   bool get canCancel => const {'PENDING', 'CONFIRMED', 'ARRIVED'}.contains(status);
   bool get canStart => status == 'CONFIRMED' || status == 'ARRIVED';
 }

@@ -59,8 +59,7 @@ def create_booking(body: BookingCreate, db: Session = Depends(get_db)):
 
 
 @router.get("")
-def list_bookings(driver_id: int | None = None, host_id: int | None = None,
-                  db: Session = Depends(get_db)):
+def list_bookings(driver_id: int | None = None, host_id: int | None = None, db: Session = Depends(get_db)):
     query = select(Booking).order_by(Booking.start_time.desc())
     if driver_id is not None:
         query = query.where(Booking.driver_id == driver_id)
@@ -109,8 +108,12 @@ def booking_health(booking_id: int, db: Session = Depends(get_db)):
     online = is_online(db.get(Charger, booking.charger_id), now)
     alternatives = [] if online else alternatives_for(db, booking, now)
     db.commit()
-    return {"booking_id": booking.id, "online": online, "alternatives": alternatives,
-            "credit_paise": 0 if online else settings.chargesure_credit_paise}
+    return {
+        "booking_id": booking.id,
+        "online": online,
+        "alternatives": alternatives,
+        "credit_paise": 0 if online else settings.chargesure_credit_paise,
+    }
 
 
 @router.post("/{booking_id}/transfer", status_code=201)
@@ -131,10 +134,16 @@ def transfer_booking(booking_id: int, body: TransferRequest, db: Session = Depen
 
     old.status = CANCELLED
     db.get(Charger, old.charger_id).host_cancellations += 1  # a failed charger counts against it
-    new = Booking(charger_id=target.id, driver_id=old.driver_id, vehicle_id=old.vehicle_id,
-                  start_time=start, end_time=end, status=CONFIRMED,
-                  transferred_from_booking_id=old.id,
-                  credit_paise=old.credit_paise + settings.chargesure_credit_paise)
+    new = Booking(
+        charger_id=target.id,
+        driver_id=old.driver_id,
+        vehicle_id=old.vehicle_id,
+        start_time=start,
+        end_time=end,
+        status=CONFIRMED,
+        transferred_from_booking_id=old.id,
+        credit_paise=old.credit_paise + settings.chargesure_credit_paise,
+    )
     target.total_bookings += 1
     db.add(new)
     db.commit()

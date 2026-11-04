@@ -3,6 +3,7 @@
 Hard filters (radius, connector, free slot, finishes by ready-by) are applied by the
 caller; this module scores the survivors 0-100 from factors normalised to 0-1.
 """
+
 from dataclasses import dataclass
 
 WEIGHTS = {"distance": 30, "availability": 25, "reliability": 20, "price": 15, "power": 10}

@@ -3,6 +3,7 @@
 Only SimulatedPlug exists for now. A ShellyPlug(ip) using the plug's local HTTP API
 (/rpc/Switch.GetStatus, /rpc/Switch.Set) slots in later via PLUG_MODE=shelly.
 """
+
 from dataclasses import dataclass
 from datetime import datetime
 
@@ -45,8 +46,9 @@ class SimulatedPlug:
         if not self.online:
             return None
         power_w = self.load_kw * 1000 if self.on else 0.0
-        return PlugReading(self.on, NOMINAL_VOLTAGE, round(power_w / NOMINAL_VOLTAGE, 2),
-                           round(power_w, 1), round(self.meter_kwh, 3))
+        return PlugReading(
+            self.on, NOMINAL_VOLTAGE, round(power_w / NOMINAL_VOLTAGE, 2), round(power_w, 1), round(self.meter_kwh, 3)
+        )
 
     def switch(self, on: bool, load_kw: float = 0.0) -> bool:
         self._advance()

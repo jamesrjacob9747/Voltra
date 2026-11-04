@@ -7,6 +7,7 @@ import '../format.dart';
 import '../models.dart';
 import '../theme.dart';
 import '../widgets/error_view.dart';
+import '../widgets/snack.dart';
 import 'bill_screen.dart';
 
 /// Live readings from the smart plug, polled every 2 s, with the running cost.
@@ -75,7 +76,7 @@ class _LiveSessionScreenState extends State<LiveSessionScreen> {
     } on ApiException catch (e) {
       if (!mounted) return;
       setState(() => _stopping = false);
-      ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(e.message)));
+      showSnack(context, e.message);
       _poll = Timer.periodic(const Duration(seconds: 2), (_) => _load());
     }
   }

@@ -1,4 +1,5 @@
 """Charging Confidence, 0-100 (PRD Algorithms 3). Deterministic, not AI."""
+
 from dataclasses import dataclass
 from datetime import datetime, timedelta
 
@@ -20,10 +21,18 @@ def band_for(score: int) -> str:
     return "Unverified"
 
 
-def compute_confidence(*, online: bool, host_confirmed: bool, total_sessions: int,
-                       successful_sessions: int, total_bookings: int, host_cancellations: int,
-                       last_success_at: datetime | None, slot_free: bool,
-                       now: datetime) -> Confidence:
+def compute_confidence(
+    *,
+    online: bool,
+    host_confirmed: bool,
+    total_sessions: int,
+    successful_sessions: int,
+    total_bookings: int,
+    host_cancellations: int,
+    last_success_at: datetime | None,
+    slot_free: bool,
+    now: datetime,
+) -> Confidence:
     success = 10.0 if total_sessions == 0 else 20 * successful_sessions / total_sessions
     cancel_rate = host_cancellations / total_bookings if total_bookings else 0.0
     recent = last_success_at is not None and now - last_success_at <= RECENT_WINDOW

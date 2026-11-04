@@ -2,6 +2,7 @@
 
 All money is integer paise. 1.85 kWh x Rs 12 = Rs 22.20 -> fee Rs 3.33, host Rs 18.87.
 """
+
 from dataclasses import dataclass
 from decimal import ROUND_HALF_UP, Decimal
 

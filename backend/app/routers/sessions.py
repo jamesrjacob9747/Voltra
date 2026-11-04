@@ -4,8 +4,7 @@ from sqlalchemy.orm import Session
 
 from ..config import settings
 from ..db import get_db
-from ..models import (ARRIVED, CHARGING, COMPLETED, CONFIRMED, Booking, Charger, ChargingSession,
-                      Payment)
+from ..models import ARRIVED, CHARGING, COMPLETED, CONFIRMED, Booking, Charger, ChargingSession, Payment
 from ..schemas import SessionStart
 from ..services import energy, plug
 from ..services.billing import compute_bill, metered_kwh
@@ -43,19 +42,25 @@ def start_session(body: SessionStart, db: Session = Depends(get_db)):
         # ChargeSure: hand the app the alternatives in the same response.
         alternatives = alternatives_for(db, booking, now)
         db.commit()
-        raise HTTPException(409, {"code": "CHARGER_OFFLINE", "alternatives": alternatives,
-                                  "credit_paise": settings.chargesure_credit_paise})
+        raise HTTPException(
+            409,
+            {"code": "CHARGER_OFFLINE", "alternatives": alternatives, "credit_paise": settings.chargesure_credit_paise},
+        )
 
     vehicle = booking_vehicle(db, booking)
-    load_kw = energy.effective_power_kw(energy.socket_kw(charger.connector_type, charger.power_kw),
-                                        vehicle.charger_kw if vehicle else SCOOTER_FALLBACK_KW)
+    load_kw = energy.charging_power_kw(
+        charger.connector_type, charger.power_kw, vehicle.charger_kw if vehicle else SCOOTER_FALLBACK_KW
+    )
     device = plug.get_plug(charger.device_id)
     device.switch(True, load_kw)
     reading = device.read()
 
-    session = ChargingSession(booking_id=booking.id, meter_start_kwh=reading.energy_kwh,
-                              price_per_kwh_paise=price_at(charger.base_price_per_kwh_paise, now.hour),
-                              started_at=now)
+    session = ChargingSession(
+        booking_id=booking.id,
+        meter_start_kwh=reading.energy_kwh,
+        price_per_kwh_paise=price_at(charger.base_price_per_kwh_paise, now.hour),
+        started_at=now,
+    )
     booking.status = CHARGING
     db.add(session)
     db.commit()

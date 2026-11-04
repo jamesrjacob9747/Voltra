@@ -8,8 +8,9 @@ CHARGING_EFFICIENCY = 0.9
 SOCKET_15A_MAX_KW = 3.3
 
 
-def energy_needed_kwh(current_pct: float, target_pct: float, battery_kwh: float,
-                      efficiency: float = CHARGING_EFFICIENCY) -> float:
+def energy_needed_kwh(
+    current_pct: float, target_pct: float, battery_kwh: float, efficiency: float = CHARGING_EFFICIENCY
+) -> float:
     delta = max(0.0, target_pct - current_pct) / 100
     return delta * battery_kwh / efficiency
 
@@ -20,6 +21,12 @@ def socket_kw(connector_type: str, power_kw: float) -> float:
 
 def effective_power_kw(charger_kw: float, vehicle_charger_kw: float) -> float:
     return min(charger_kw, vehicle_charger_kw)
+
+
+def charging_power_kw(connector_type: str, charger_kw: float, vehicle_charger_kw: float | None) -> float:
+    """What a vehicle actually draws here: the socket's limit, capped by the vehicle's charger if known."""
+    supply = socket_kw(connector_type, charger_kw)
+    return supply if vehicle_charger_kw is None else effective_power_kw(supply, vehicle_charger_kw)
 
 
 def charge_hours(energy_kwh: float, power_kw: float) -> float:

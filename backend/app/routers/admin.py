@@ -1,15 +1,24 @@
 """Demo controls. Used on stage to trigger ChargeSure and to reset between rehearsals."""
+
 from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
+from ..config import settings
 from ..db import get_db
 from ..models import Charger
 from ..schemas import PlugOnline
 from ..seed import reset_and_seed
 from ..services import plug
 
-router = APIRouter(prefix="/admin", tags=["admin"])
+
+def require_demo_endpoints() -> None:
+    """These endpoints have no auth, so they exist only while DEMO_ENDPOINTS=true."""
+    if not settings.demo_endpoints:
+        raise HTTPException(404, "Not found")
+
+
+router = APIRouter(prefix="/admin", tags=["admin"], dependencies=[Depends(require_demo_endpoints)])
 
 
 @router.post("/plugs/{device_id}/online")

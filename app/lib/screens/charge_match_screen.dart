@@ -6,6 +6,7 @@ import '../format.dart';
 import '../models.dart';
 import '../theme.dart';
 import '../widgets/confidence_badge.dart';
+import '../widgets/snack.dart';
 import 'booking_screen.dart';
 
 /// ChargeMatch: the driver states a need; Voltra ranks the chargers that can meet it.
@@ -39,8 +40,11 @@ class _ChargeMatchScreenState extends State<ChargeMatchScreen> {
 
   Future<void> _init() async {
     try {
-      final vehicles = await api.vehicles(widget.user.id);
-      final now = await api.serverNow();
+      // Independent requests, fetched at once. Future.wait rethrows the original ApiException.
+      final results = await Future.wait([api.vehicles(widget.user.id), api.serverNow()]);
+      final vehicles = results[0] as List<Vehicle>;
+      final now = results[1] as DateTime;
+      if (!mounted) return;
       setState(() {
         _vehicles = vehicles;
         _vehicle = vehicles.isEmpty ? null : vehicles.first;
@@ -48,7 +52,7 @@ class _ChargeMatchScreenState extends State<ChargeMatchScreen> {
         _readyBy = TimeOfDay(hour: ready.hour, minute: ready.minute - ready.minute % 15);
       });
     } on ApiException catch (e) {
-      setState(() => _error = e.message);
+      if (mounted) setState(() => _error = e.message);
     }
   }
 
@@ -79,9 +83,9 @@ class _ChargeMatchScreenState extends State<ChargeMatchScreen> {
         lng: demoLocation.longitude,
         radiusKm: _radiusKm,
       );
-      setState(() => _results = results);
+      if (mounted) setState(() => _results = results);
     } on ApiException catch (e) {
-      _snack(e.message);
+      if (mounted) showSnack(context, e.message);
     } finally {
       if (mounted) setState(() => _searching = false);
     }
@@ -104,12 +108,11 @@ class _ChargeMatchScreenState extends State<ChargeMatchScreen> {
         ),
       );
     } on ApiException catch (e) {
-      _snack(e.message);
-      if (mounted) setState(() => _reservingId = null);
+      if (!mounted) return;
+      showSnack(context, e.message);
+      setState(() => _reservingId = null);
     }
   }
-
-  void _snack(String message) => ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(message)));
 
   @override
   Widget build(BuildContext context) {

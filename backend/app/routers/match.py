@@ -28,9 +28,15 @@ def charge_match(body: MatchRequest, db: Session = Depends(get_db)):
         raise HTTPException(422, "Target battery must be above current battery")
     now = plug.clock()
     results = match_chargers(
-        db, vehicle=vehicle, current_pct=body.current_pct, target_pct=body.target_pct,
-        ready_by=parse_ready_by(body.ready_by, now), lat=body.lat, lng=body.lng,
-        radius_km=body.radius_km, now=now,
+        db,
+        vehicle=vehicle,
+        current_pct=body.current_pct,
+        target_pct=body.target_pct,
+        ready_by=parse_ready_by(body.ready_by, now),
+        lat=body.lat,
+        lng=body.lng,
+        radius_km=body.radius_km,
+        now=now,
     )
     db.commit()
     return {"best": results[0] if results else None, "results": results}

@@ -9,8 +9,14 @@ router = APIRouter(prefix="/users", tags=["users"])
 
 
 def _user(u: User) -> dict:
-    return {"id": u.id, "name": u.name, "phone": u.phone, "role": u.role,
-            "rating": u.rating, "kyc_status": u.kyc_status}
+    return {
+        "id": u.id,
+        "name": u.name,
+        "phone": u.phone,
+        "role": u.role,
+        "rating": u.rating,
+        "kyc_status": u.kyc_status,
+    }
 
 
 @router.get("")
@@ -23,6 +29,13 @@ def list_users(db: Session = Depends(get_db)):
 def list_vehicles(user_id: int, db: Session = Depends(get_db)):
     if db.get(User, user_id) is None:
         raise HTTPException(404, "User not found")
-    return [{"id": v.id, "model": v.model, "battery_kwh": v.battery_kwh,
-             "charger_kw": v.charger_kw, "connector_type": v.connector_type}
-            for v in db.scalars(select(Vehicle).where(Vehicle.user_id == user_id))]
+    return [
+        {
+            "id": v.id,
+            "model": v.model,
+            "battery_kwh": v.battery_kwh,
+            "charger_kw": v.charger_kw,
+            "connector_type": v.connector_type,
+        }
+        for v in db.scalars(select(Vehicle).where(Vehicle.user_id == user_id))
+    ]

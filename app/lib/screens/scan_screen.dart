@@ -72,28 +72,7 @@ class _ScanScreenState extends State<ScanScreen> {
   }
 
   Future<void> _enterCode() async {
-    final controller = TextEditingController();
-    final code = await showDialog<String>(
-      context: context,
-      builder: (context) => AlertDialog(
-        title: const Text('Enter charger code'),
-        content: TextField(
-          controller: controller,
-          autofocus: true,
-          textCapitalization: TextCapitalization.characters,
-          decoration: const InputDecoration(hintText: 'e.g. CHG001', helperText: 'Printed under the QR code'),
-          onSubmitted: (v) => Navigator.pop(context, v),
-        ),
-        actions: [
-          TextButton(onPressed: () => Navigator.pop(context), child: const Text('Cancel')),
-          FilledButton(
-            style: FilledButton.styleFrom(minimumSize: const Size(88, 40)),
-            onPressed: () => Navigator.pop(context, controller.text),
-            child: const Text('Start'),
-          ),
-        ],
-      ),
-    );
+    final code = await showDialog<String>(context: context, builder: (_) => const _CodeDialog());
     final cleaned = code?.trim().toUpperCase();
     if (cleaned != null && cleaned.isNotEmpty) await _start('$qrPrefix$cleaned');
   }
@@ -179,6 +158,47 @@ class _ScanScreenState extends State<ScanScreen> {
           ),
         ],
       ),
+    );
+  }
+}
+
+/// Typed fallback for the QR. Owns its controller so it is disposed only after the dialog's
+/// closing animation has finished.
+class _CodeDialog extends StatefulWidget {
+  const _CodeDialog();
+
+  @override
+  State<_CodeDialog> createState() => _CodeDialogState();
+}
+
+class _CodeDialogState extends State<_CodeDialog> {
+  final _controller = TextEditingController();
+
+  @override
+  void dispose() {
+    _controller.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return AlertDialog(
+      title: const Text('Enter charger code'),
+      content: TextField(
+        controller: _controller,
+        autofocus: true,
+        textCapitalization: TextCapitalization.characters,
+        decoration: const InputDecoration(hintText: 'e.g. CHG001', helperText: 'Printed under the QR code'),
+        onSubmitted: (v) => Navigator.pop(context, v),
+      ),
+      actions: [
+        TextButton(onPressed: () => Navigator.pop(context), child: const Text('Cancel')),
+        FilledButton(
+          style: FilledButton.styleFrom(minimumSize: const Size(88, 40)),
+          onPressed: () => Navigator.pop(context, _controller.text),
+          child: const Text('Start'),
+        ),
+      ],
     );
   }
 }

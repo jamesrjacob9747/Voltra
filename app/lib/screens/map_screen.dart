@@ -27,6 +27,12 @@ class _MapScreenState extends State<MapScreen> {
   final _map = MapController();
   late Future<List<Charger>> _chargers = _load();
 
+  @override
+  void dispose() {
+    _map.dispose();
+    super.dispose();
+  }
+
   Future<List<Charger>> _load() =>
       api.chargers(lat: demoLocation.latitude, lng: demoLocation.longitude, radiusKm: searchRadiusKm);
 

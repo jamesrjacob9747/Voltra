@@ -40,11 +40,13 @@ class _BookingSheetState extends State<_BookingSheet> {
     final navigator = Navigator.of(widget.parent);
     final messenger = ScaffoldMessenger.of(widget.parent);
     try {
-      final now = await api.serverNow();
+      // Independent requests, fetched at once. Future.wait rethrows the original ApiException.
+      final results = await Future.wait([api.serverNow(), api.vehicles(widget.user.id)]);
+      final now = results[0] as DateTime;
+      final vehicles = results[1] as List<Vehicle>;
       // Round up to the next 5 minutes so the slot starts on a clean time.
       final base = now.add(Duration(minutes: 5 - now.minute % 5 + _startInMin));
       final start = DateTime(base.year, base.month, base.day, base.hour, base.minute);
-      final vehicles = await api.vehicles(widget.user.id);
       final booking = await api.createBooking(
         driverId: widget.user.id,
         chargerId: widget.charger.id,

@@ -22,12 +22,19 @@ def create_review(body: ReviewCreate, db: Session = Depends(get_db)):
     else:
         raise HTTPException(403, "Only the driver or host of this booking can rate it")
 
-    db.add(Review(booking_id=booking.id, reviewer_id=body.reviewer_id, reviewee_id=reviewee_id,
-                  rating=body.rating, tags=",".join(body.tags), comment=body.comment))
+    db.add(
+        Review(
+            booking_id=booking.id,
+            reviewer_id=body.reviewer_id,
+            reviewee_id=reviewee_id,
+            rating=body.rating,
+            tags=",".join(body.tags),
+            comment=body.comment,
+        )
+    )
     db.flush()
     reviewee = db.get(User, reviewee_id)
-    reviewee.rating = round(db.scalar(
-        select(func.avg(Review.rating)).where(Review.reviewee_id == reviewee_id)), 1)
+    reviewee.rating = round(db.scalar(select(func.avg(Review.rating)).where(Review.reviewee_id == reviewee_id)), 1)
     if reviewee_id == charger.host_id:
         charger.rating = reviewee.rating
     db.commit()

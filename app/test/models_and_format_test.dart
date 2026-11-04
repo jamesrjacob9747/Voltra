@@ -84,7 +84,6 @@ void main() {
     });
     expect(b.start, DateTime(2026, 11, 4, 14, 5));
     expect(b.canCancel, isTrue);
-    expect(b.isActive, isTrue);
     expect(b.canStart, isFalse); // pending: host hasn't confirmed yet
 
     final e = MatchEstimate.fromJson({
