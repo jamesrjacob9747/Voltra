@@ -32,6 +32,11 @@ def test_energy_and_time_for_scooter():
     assert energy.charge_hours(need, power) * 60 == pytest.approx(146.7, abs=0.1)
 
 
+def test_charging_power_without_known_vehicle_is_the_socket_limit():
+    assert energy.charging_power_kw("15A", 7.2, None) == 3.3
+    assert energy.charging_power_kw("TYPE2", 7.2, 3.3) == 3.3
+
+
 def test_15a_socket_capped_and_compatibility():
     assert energy.socket_kw("15A", 7.2) == 3.3
     assert energy.socket_kw("TYPE2", 7.2) == 7.2
@@ -46,9 +51,17 @@ def test_time_of_day_pricing():
 
 
 def _confidence(**overrides):
-    args = dict(online=True, host_confirmed=True, total_sessions=143, successful_sessions=140,
-                total_bookings=150, host_cancellations=1, last_success_at=NOW - timedelta(days=1),
-                slot_free=True, now=NOW)
+    args = dict(
+        online=True,
+        host_confirmed=True,
+        total_sessions=143,
+        successful_sessions=140,
+        total_bookings=150,
+        host_cancellations=1,
+        last_success_at=NOW - timedelta(days=1),
+        slot_free=True,
+        now=NOW,
+    )
     return compute_confidence(**{**args, **overrides})
 
 
@@ -60,8 +73,9 @@ def test_confidence_reliable_charger():
 
 def test_confidence_drops_when_offline_and_new_chargers_start_mid():
     assert _confidence(online=False).score == 69
-    fresh = _confidence(total_sessions=0, successful_sessions=0, total_bookings=0,
-                        host_cancellations=0, last_success_at=None)
+    fresh = _confidence(
+        total_sessions=0, successful_sessions=0, total_bookings=0, host_cancellations=0, last_success_at=None
+    )
     assert fresh.breakdown["successful_sessions"] == 10
     assert fresh.score == 80
 

@@ -1,4 +1,6 @@
-from datetime import datetime
+from dataclasses import replace
+
+from app.routers import admin
 
 MANOJ_LAT, MANOJ_LNG = 12.9352, 77.6245
 ARJUN = 5  # seeded driver
@@ -10,11 +12,34 @@ def _arjun_vehicle(client) -> int:
 
 
 def _book(client, charger_id: int, start="2026-11-09T10:05", end="2026-11-09T13:00") -> dict:
-    resp = client.post("/bookings", json={"driver_id": ARJUN, "charger_id": charger_id,
-                                          "vehicle_id": _arjun_vehicle(client),
-                                          "start_time": start, "end_time": end})
+    resp = client.post(
+        "/bookings",
+        json={
+            "driver_id": ARJUN,
+            "charger_id": charger_id,
+            "vehicle_id": _arjun_vehicle(client),
+            "start_time": start,
+            "end_time": end,
+        },
+    )
     assert resp.status_code == 201, resp.text
     return resp.json()
+
+
+def test_demo_endpoints_can_be_switched_off(client, monkeypatch):
+    assert client.post("/admin/plugs/CHG001/online", json={"online": True}).status_code == 200
+    monkeypatch.setattr(admin, "settings", replace(admin.settings, demo_endpoints=False))
+    assert client.post("/admin/plugs/CHG001/online", json={"online": True}).status_code == 404
+    assert client.post("/admin/reset").status_code == 404
+    assert client.post("/payments/1/demo-pay").status_code == 404
+
+
+def test_razorpay_verify_refuses_without_keys(client):
+    resp = client.post(
+        "/payments/verify",
+        json={"booking_id": 1, "razorpay_order_id": "x", "razorpay_payment_id": "y", "razorpay_signature": "z"},
+    )
+    assert resp.status_code == 409
 
 
 def test_health_reports_server_time(client):
@@ -30,9 +55,18 @@ def test_list_chargers_hides_exact_location(client):
 
 
 def test_chargematch_returns_ranked_compatible_chargers(client):
-    resp = client.post("/match", json={"vehicle_id": _arjun_vehicle(client), "current_pct": 25,
-                                       "target_pct": 80, "ready_by": "2026-11-09T17:00",
-                                       "lat": MANOJ_LAT, "lng": MANOJ_LNG, "radius_km": 2})
+    resp = client.post(
+        "/match",
+        json={
+            "vehicle_id": _arjun_vehicle(client),
+            "current_pct": 25,
+            "target_pct": 80,
+            "ready_by": "2026-11-09T17:00",
+            "lat": MANOJ_LAT,
+            "lng": MANOJ_LNG,
+            "radius_km": 2,
+        },
+    )
     body = resp.json()
     assert resp.status_code == 200 and body["best"] is not None
     scores = [r["match_score"] for r in body["results"]]
@@ -64,8 +98,14 @@ def test_full_journey_bills_from_the_meter(client, clock):
     assert live["duration_s"] == 148 * 60  # demo_speed is 1 in tests
 
     stopped = client.post(f"/sessions/{session_id}/stop").json()
-    assert stopped["bill"] == {"energy_kwh": 1.85, "total_paise": 2220, "platform_fee_paise": 333,
-                               "host_share_paise": 1887, "credit_paise": 0, "payable_paise": 2220}
+    assert stopped["bill"] == {
+        "energy_kwh": 1.85,
+        "total_paise": 2220,
+        "platform_fee_paise": 333,
+        "host_share_paise": 1887,
+        "credit_paise": 0,
+        "payable_paise": 2220,
+    }
 
     order = client.post(f"/payments/{booking['id']}/order").json()
     assert order["mode"] == "demo"
@@ -81,8 +121,10 @@ def test_full_journey_bills_from_the_meter(client, clock):
 
 def test_double_booking_is_rejected(client):
     _book(client, charger_id=1)
-    clash = client.post("/bookings", json={"driver_id": ARJUN, "charger_id": 1,
-                                           "start_time": "2026-11-09T11:00", "end_time": "2026-11-09T12:00"})
+    clash = client.post(
+        "/bookings",
+        json={"driver_id": ARJUN, "charger_id": 1, "start_time": "2026-11-09T11:00", "end_time": "2026-11-09T12:00"},
+    )
     assert clash.status_code == 409
 
 

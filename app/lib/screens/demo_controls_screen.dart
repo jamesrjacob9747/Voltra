@@ -5,6 +5,7 @@ import '../config.dart';
 import '../models.dart';
 import '../theme.dart';
 import '../widgets/error_view.dart';
+import '../widgets/snack.dart';
 
 /// Stage controls for the pitch: take a charger offline to trigger ChargeSure,
 /// bring it back, or reset all demo data between rehearsals.
@@ -25,10 +26,11 @@ class _DemoControlsScreenState extends State<DemoControlsScreen> {
     setState(() => _busy.add(c.deviceId));
     try {
       await api.setPlugOnline(c.deviceId, online);
+      if (!mounted) return;
       setState(() => _chargers = _load());
       await _chargers;
     } on ApiException catch (e) {
-      if (mounted) ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(e.message)));
+      if (mounted) showSnack(context, e.message);
     } finally {
       if (mounted) setState(() => _busy.remove(c.deviceId));
     }
@@ -47,9 +49,14 @@ class _DemoControlsScreenState extends State<DemoControlsScreen> {
       ),
     );
     if (ok != true) return;
-    await api.resetDemo();
+    try {
+      await api.resetDemo();
+    } on ApiException catch (e) {
+      if (mounted) showSnack(context, e.message);
+      return;
+    }
     if (!mounted) return;
-    ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Demo data reset')));
+    showSnack(context, 'Demo data reset');
     setState(() => _chargers = _load());
   }
 

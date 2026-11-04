@@ -30,12 +30,15 @@ uvicorn app.main:app --host 0.0.0.0 --port 8000
 - Interactive API docs: http://localhost:8000/docs
 - A phone on the same Wi-Fi reaches it at `http://<laptop LAN IP>:8000`.
 - SQLite by default. For Supabase, set `DATABASE_URL` in `.env` (see `.env.example`).
+- `DEMO_ENDPOINTS=false` in `.env` turns off the unauthenticated demo controls (`/admin/*`, demo payment) for any non-demo deployment.
 
-Run the tests:
+Tests and lint (dev tools are in `requirements-dev.txt`):
 
 ```bash
 cd backend
+pip install -r requirements-dev.txt
 python -m pytest -q
+python -m ruff check . && python -m ruff format --check .
 ```
 
 ## App: run it

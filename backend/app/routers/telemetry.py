@@ -17,8 +17,16 @@ def ingest(body: TelemetryIn, db: Session = Depends(get_db)):
     if charger is None:
         raise HTTPException(404, "Unknown device")
     now = plug.clock()
-    db.add(Telemetry(device_id=body.charger_id, ts=now, voltage=body.voltage, current=body.current,
-                     power_w=body.power_w, energy_kwh=body.energy_kwh))
+    db.add(
+        Telemetry(
+            device_id=body.charger_id,
+            ts=now,
+            voltage=body.voltage,
+            current=body.current,
+            power_w=body.power_w,
+            energy_kwh=body.energy_kwh,
+        )
+    )
     charger.last_heartbeat_at = now
     db.commit()
     return {"ok": True}

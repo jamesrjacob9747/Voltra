@@ -16,6 +16,8 @@ class Settings:
     heartbeat_timeout_s: int = int(os.getenv("HEARTBEAT_TIMEOUT_S", "30"))
     razorpay_key_id: str = os.getenv("RAZORPAY_KEY_ID", "")
     razorpay_key_secret: str = os.getenv("RAZORPAY_KEY_SECRET", "")
+    # Unauthenticated stage controls (/admin/*, demo payment). Turn off outside the demo.
+    demo_endpoints: bool = os.getenv("DEMO_ENDPOINTS", "true").lower() == "true"
 
 
 settings = Settings()

@@ -3,6 +3,8 @@
 Run from backend/:  python -m scripts.make_qr_codes
 Each code holds voltra://charger/<device_id>, which the app scans to start a session.
 """
+
+from html import escape
 from pathlib import Path
 
 import qrcode
@@ -22,7 +24,7 @@ def main() -> None:
         img.save(OUT / f"{device_id}.svg")
         cards.append(
             f'<div class="card"><img src="{device_id}.svg" alt="QR for {device_id}">'
-            f"<h2>{name}</h2><p>Code: <b>{device_id}</b></p></div>"
+            f"<h2>{escape(name)}</h2><p>Code: <b>{device_id}</b></p></div>"
         )
 
     (OUT / "index.html").write_text(

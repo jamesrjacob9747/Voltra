@@ -7,7 +7,12 @@ from .db import Base
 
 # Booking states (PRD section 9, F7)
 PENDING, CONFIRMED, ARRIVED, CHARGING, COMPLETED, CANCELLED = (
-    "PENDING", "CONFIRMED", "ARRIVED", "CHARGING", "COMPLETED", "CANCELLED",
+    "PENDING",
+    "CONFIRMED",
+    "ARRIVED",
+    "CHARGING",
+    "COMPLETED",
+    "CANCELLED",
 )
 
 

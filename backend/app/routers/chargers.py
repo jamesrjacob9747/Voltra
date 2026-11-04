@@ -13,9 +13,15 @@ router = APIRouter(prefix="/chargers", tags=["chargers"])
 
 
 @router.get("")
-def list_chargers(lat: float, lng: float, radius_km: float = 5.0, connector: str | None = None,
-                  max_price_paise: int | None = None, available_now: bool = False,
-                  db: Session = Depends(get_db)):
+def list_chargers(
+    lat: float,
+    lng: float,
+    radius_km: float = 5.0,
+    connector: str | None = None,
+    max_price_paise: int | None = None,
+    available_now: bool = False,
+    db: Session = Depends(get_db),
+):
     now = plug.clock()
     views = []
     for c in db.scalars(select(Charger)).all():
@@ -49,8 +55,9 @@ def create_charger(body: ChargerCreate, db: Session = Depends(get_db)):
         raise HTTPException(404, "Host not found")
     alat, alng = approximate_location(body.lat, body.lng)
     next_no = (db.scalar(select(func.max(Charger.id))) or 0) + 1
-    charger = Charger(**body.model_dump(), approx_lat=alat, approx_lng=alng,
-                      device_id=f"CHG{next_no:03d}", verified=False)
+    charger = Charger(
+        **body.model_dump(), approx_lat=alat, approx_lng=alng, device_id=f"CHG{next_no:03d}", verified=False
+    )
     db.add(charger)
     db.commit()
     return charger_view(db, charger, plug.clock(), exact=True)

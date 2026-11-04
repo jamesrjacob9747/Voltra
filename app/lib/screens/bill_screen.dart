@@ -5,6 +5,7 @@ import '../format.dart';
 import '../models.dart';
 import '../theme.dart';
 import '../widgets/error_view.dart';
+import '../widgets/snack.dart';
 
 /// The receipt: what the meter measured, what the driver pays and how it splits;
 /// then UPI payment and a rating for the host.
@@ -33,8 +34,10 @@ class _BillScreenState extends State<BillScreen> {
 
   Future<void> _load() async {
     try {
-      final bill = await api.bill(widget.bookingId);
-      final session = await api.liveSession(widget.sessionId);
+      // Independent requests, fetched at once. Future.wait rethrows the original ApiException.
+      final results = await Future.wait([api.bill(widget.bookingId), api.liveSession(widget.sessionId)]);
+      final bill = results[0] as Bill;
+      final session = results[1] as LiveSession;
       if (mounted) {
         setState(() {
           _bill = bill;
@@ -58,7 +61,7 @@ class _BillScreenState extends State<BillScreen> {
       final paid = await api.demoPay(b.bookingId);
       if (mounted) setState(() => _bill = paid);
     } on ApiException catch (e) {
-      if (mounted) ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(e.message)));
+      if (mounted) showSnack(context, e.message);
     } finally {
       if (mounted) setState(() => _paying = false);
     }
@@ -256,7 +259,7 @@ class _RatingCardState extends State<_RatingCard> {
       );
       if (mounted) setState(() => _done = true);
     } on ApiException catch (e) {
-      if (mounted) ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(e.message)));
+      if (mounted) showSnack(context, e.message);
     } finally {
       if (mounted) setState(() => _sending = false);
     }

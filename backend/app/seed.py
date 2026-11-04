@@ -1,4 +1,5 @@
 """Demo data around Koramangala, Bengaluru. Run: python -m app.seed"""
+
 from datetime import datetime, timedelta
 
 from sqlalchemy.orm import Session
@@ -6,7 +7,6 @@ from sqlalchemy.orm import Session
 from .db import Base, SessionLocal, engine
 from .models import Charger, User, Vehicle
 from .services.geo import approximate_location
-
 
 CHARGERS = [
     # name, host idx, lat, lng, connector, kW, Rs/kWh, auto-approve, sessions, ok, bookings, cancels, rating
@@ -32,22 +32,40 @@ def seed(db: Session) -> None:
     db.add_all([*hosts, driver])
     db.flush()
 
-    db.add_all([
-        Vehicle(user_id=driver.id, model="Ather 450X", battery_kwh=3.0, charger_kw=0.75, connector_type="15A"),
-        Vehicle(user_id=hosts[3].id, model="Tata Nexon EV", battery_kwh=30.0, charger_kw=7.2, connector_type="TYPE2"),
-    ])
+    db.add_all(
+        [
+            Vehicle(user_id=driver.id, model="Ather 450X", battery_kwh=3.0, charger_kw=0.75, connector_type="15A"),
+            Vehicle(
+                user_id=hosts[3].id, model="Tata Nexon EV", battery_kwh=30.0, charger_kw=7.2, connector_type="TYPE2"
+            ),
+        ]
+    )
 
     now = datetime.now()
     for i, (name, h, lat, lng, conn, kw, rs, auto, sess, ok, books, cancels, rating) in enumerate(CHARGERS, 1):
         alat, alng = approximate_location(lat, lng)
-        db.add(Charger(
-            host_id=hosts[h].id, name=name, lat=lat, lng=lng, approx_lat=alat, approx_lng=alng,
-            address=f"{name}, Koramangala, Bengaluru", connector_type=conn, power_kw=kw,
-            base_price_per_kwh_paise=rs * 100, auto_approve=auto, device_id=f"CHG{i:03d}",
-            total_sessions=sess, successful_sessions=ok, total_bookings=books,
-            host_cancellations=cancels, rating=rating,
-            last_success_at=now - timedelta(days=1) if sess else None,
-        ))
+        db.add(
+            Charger(
+                host_id=hosts[h].id,
+                name=name,
+                lat=lat,
+                lng=lng,
+                approx_lat=alat,
+                approx_lng=alng,
+                address=f"{name}, Koramangala, Bengaluru",
+                connector_type=conn,
+                power_kw=kw,
+                base_price_per_kwh_paise=rs * 100,
+                auto_approve=auto,
+                device_id=f"CHG{i:03d}",
+                total_sessions=sess,
+                successful_sessions=ok,
+                total_bookings=books,
+                host_cancellations=cancels,
+                rating=rating,
+                last_success_at=now - timedelta(days=1) if sess else None,
+            )
+        )
     db.commit()
 
 

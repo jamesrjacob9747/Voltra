@@ -9,6 +9,7 @@ import '../theme.dart';
 import '../widgets/booking_status.dart';
 import '../widgets/chargesure_panel.dart';
 import '../widgets/error_view.dart';
+import '../widgets/snack.dart';
 import 'bill_screen.dart';
 import 'live_session_screen.dart';
 import 'scan_screen.dart';
@@ -63,8 +64,7 @@ class _BookingScreenState extends State<BookingScreen> {
     try {
       final moved = await api.transferBooking(widget.bookingId, target.id);
       if (!mounted) return;
-      ScaffoldMessenger.of(context)
-          .showSnackBar(SnackBar(content: Text('Moved to ${target.name}. ${rupees(moved.creditPaise)} credit added.')));
+      showSnack(context, 'Moved to ${target.name}. ${rupees(moved.creditPaise)} credit added.');
       Navigator.of(context).pushReplacement(
         MaterialPageRoute(
           builder: (_) => BookingScreen(bookingId: moved.id, user: widget.user),
@@ -73,7 +73,7 @@ class _BookingScreenState extends State<BookingScreen> {
     } on ApiException catch (e) {
       if (!mounted) return;
       setState(() => _movingTo = null);
-      ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(e.message)));
+      showSnack(context, e.message);
     }
   }
 
@@ -105,10 +105,11 @@ class _BookingScreenState extends State<BookingScreen> {
     setState(() => _busy = true);
     try {
       final updated = await api.updateBooking(widget.bookingId, action, actorId: widget.user.id);
+      if (!mounted) return;
       setState(() => _booking = updated);
       await _load();
     } on ApiException catch (e) {
-      if (mounted) ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(e.message)));
+      if (mounted) showSnack(context, e.message);
     } finally {
       if (mounted) setState(() => _busy = false);
     }
