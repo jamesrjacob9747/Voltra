@@ -165,6 +165,39 @@ class VoltraApi {
       LiveSession.fromJson(await _send('POST', '/sessions/$sessionId/stop') as Map<String, dynamic>);
 
   Future<Bill> bill(int bookingId) async => Bill.fromJson(await _get('/payments/$bookingId') as Map<String, dynamic>);
+
+  /// ChargeSure: is the booked charger online, and if not, where can the driver go instead?
+  Future<ChargeSureOptions> bookingHealth(int bookingId) async =>
+      ChargeSureOptions.fromJson(await _get('/bookings/$bookingId/health') as Map<String, dynamic>);
+
+  /// Moves the booking to [toChargerId] and adds the ChargeSure credit. Returns the new booking.
+  Future<Booking> transferBooking(int bookingId, int toChargerId) async => Booking.fromJson(
+    await _send('POST', '/bookings/$bookingId/transfer', body: {'to_charger_id': toChargerId}) as Map<String, dynamic>,
+  );
+
+  /// Returns "demo" (no Razorpay keys on the server, or nothing to pay) or "razorpay".
+  Future<String> createOrder(int bookingId) async =>
+      (await _send('POST', '/payments/$bookingId/order') as Map<String, dynamic>)['mode'] as String;
+
+  Future<Bill> demoPay(int bookingId) async =>
+      Bill.fromJson(await _send('POST', '/payments/$bookingId/demo-pay') as Map<String, dynamic>);
+
+  Future<void> submitReview({
+    required int bookingId,
+    required int reviewerId,
+    required int rating,
+    List<String> tags = const [],
+  }) => _send(
+    'POST',
+    '/reviews',
+    body: {'booking_id': bookingId, 'reviewer_id': reviewerId, 'rating': rating, 'tags': tags},
+  );
+
+  // Stage demo controls.
+  Future<void> setPlugOnline(String deviceId, bool online) =>
+      _send('POST', '/admin/plugs/$deviceId/online', body: {'online': online});
+
+  Future<void> resetDemo() => _send('POST', '/admin/reset');
 }
 
 const qrPrefix = 'voltra://charger/';

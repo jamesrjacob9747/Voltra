@@ -6,7 +6,8 @@ import '../models.dart';
 import '../theme.dart';
 import '../widgets/error_view.dart';
 
-/// The receipt: what the meter measured, what the driver pays, and how it splits.
+/// The receipt: what the meter measured, what the driver pays and how it splits;
+/// then UPI payment and a rating for the host.
 class BillScreen extends StatefulWidget {
   const BillScreen({super.key, required this.bookingId, required this.sessionId, required this.user});
 
@@ -19,49 +20,139 @@ class BillScreen extends StatefulWidget {
 }
 
 class _BillScreenState extends State<BillScreen> {
-  late Future<(Bill, LiveSession)> _data = _load();
+  Bill? _bill;
+  LiveSession? _session;
+  String? _error;
+  bool _paying = false;
 
-  Future<(Bill, LiveSession)> _load() async =>
-      (await api.bill(widget.bookingId), await api.liveSession(widget.sessionId));
+  @override
+  void initState() {
+    super.initState();
+    _load();
+  }
+
+  Future<void> _load() async {
+    try {
+      final bill = await api.bill(widget.bookingId);
+      final session = await api.liveSession(widget.sessionId);
+      if (mounted) {
+        setState(() {
+          _bill = bill;
+          _session = session;
+          _error = null;
+        });
+      }
+    } on ApiException catch (e) {
+      if (mounted) setState(() => _error = e.message);
+    }
+  }
+
+  Future<void> _pay(Bill b) async {
+    setState(() => _paying = true);
+    try {
+      // The server creates the order; without Razorpay keys it answers "demo".
+      final mode = await api.createOrder(b.bookingId);
+      if (!mounted) return;
+      final approved = b.payablePaise == 0 || await _showUpiSheet(b, mode);
+      if (!approved) return;
+      final paid = await api.demoPay(b.bookingId);
+      if (mounted) setState(() => _bill = paid);
+    } on ApiException catch (e) {
+      if (mounted) ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(e.message)));
+    } finally {
+      if (mounted) setState(() => _paying = false);
+    }
+  }
+
+  /// Stand-in for the UPI app hand-off (UPI Intent) until Razorpay test keys are configured.
+  Future<bool> _showUpiSheet(Bill b, String mode) async {
+    final ok = await showModalBottomSheet<bool>(
+      context: context,
+      showDragHandle: true,
+      builder: (context) => SafeArea(
+        child: Padding(
+          padding: const EdgeInsets.fromLTRB(20, 0, 20, 20),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              const Row(
+                children: [
+                  Icon(Icons.account_balance_wallet_outlined, color: VoltraColors.darkGreen),
+                  SizedBox(width: 8),
+                  Text('Pay with UPI', style: TextStyle(fontSize: 20, fontWeight: FontWeight.w700)),
+                ],
+              ),
+              const SizedBox(height: 4),
+              Text(
+                mode == 'demo'
+                    ? 'Demo mode: no money moves. With Razorpay test keys this opens your UPI app.'
+                    : 'Razorpay checkout isn’t wired into the app yet; this marks the test order paid.',
+                style: const TextStyle(color: VoltraColors.muted),
+              ),
+              const SizedBox(height: 20),
+              Center(
+                child: Text(
+                  rupees(b.payablePaise, exact: true),
+                  style: const TextStyle(fontSize: 40, fontWeight: FontWeight.w800),
+                ),
+              ),
+              const Center(
+                child: Text('to Voltra', style: TextStyle(color: VoltraColors.muted)),
+              ),
+              const SizedBox(height: 20),
+              FilledButton(
+                onPressed: () => Navigator.pop(context, true),
+                child: Text('Approve ${rupees(b.payablePaise, exact: true)}'),
+              ),
+              TextButton(onPressed: () => Navigator.pop(context, false), child: const Text('Cancel')),
+            ],
+          ),
+        ),
+      ),
+    );
+    return ok ?? false;
+  }
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(title: const Text('Your bill'), automaticallyImplyLeading: false),
-      body: FutureBuilder<(Bill, LiveSession)>(
-        future: _data,
-        builder: (context, snap) {
-          if (snap.hasError) {
-            return ErrorView(message: '${snap.error}', onRetry: () => setState(() => _data = _load()));
-          }
-          if (!snap.hasData) return const Center(child: CircularProgressIndicator());
-          final (bill, session) = snap.data!;
-          return _buildBody(bill, session);
-        },
-      ),
+      body: _bill == null || _session == null
+          ? (_error != null
+                ? ErrorView(message: _error!, onRetry: _load)
+                : const Center(child: CircularProgressIndicator()))
+          : _buildBody(_bill!, _session!),
     );
   }
 
   Widget _buildBody(Bill b, LiveSession s) {
+    final paid = b.status == 'PAID';
     return Column(
       children: [
         Expanded(
           child: ListView(
             padding: const EdgeInsets.all(16),
             children: [
-              const Icon(Icons.task_alt, color: VoltraColors.darkGreen, size: 48),
+              Icon(paid ? Icons.verified : Icons.task_alt, color: VoltraColors.darkGreen, size: 48),
               const SizedBox(height: 8),
               Text(
-                rupees(b.payablePaise),
+                rupees(b.payablePaise, exact: true),
                 textAlign: TextAlign.center,
                 style: const TextStyle(fontSize: 44, fontWeight: FontWeight.w800, color: VoltraColors.ink),
               ),
               Text(
-                'for ${b.energyKwh.toStringAsFixed(3)} kWh at ${s.chargerName}',
+                paid
+                    ? 'Paid · ${b.energyKwh.toStringAsFixed(3)} kWh at ${s.chargerName}'
+                    : 'for ${b.energyKwh.toStringAsFixed(3)} kWh at ${s.chargerName}',
                 textAlign: TextAlign.center,
-                style: const TextStyle(color: VoltraColors.muted),
+                style: TextStyle(
+                  color: paid ? VoltraColors.darkGreen : VoltraColors.muted,
+                  fontWeight: paid ? FontWeight.w600 : FontWeight.w400,
+                ),
               ),
               const SizedBox(height: 20),
+              if (paid) ...[_RatingCard(bookingId: b.bookingId, user: widget.user), const SizedBox(height: 12)],
               Card(
                 child: Padding(
                   padding: const EdgeInsets.all(16),
@@ -72,9 +163,10 @@ class _BillScreenState extends State<BillScreen> {
                       _Line('Rate', pricePerKwh(s.pricePerKwhPaise)),
                       _Line('Charging time', elapsed(s.durationS)),
                       const Divider(height: 24),
-                      _Line('Charging total', rupees(b.totalPaise), bold: true),
-                      if (b.creditPaise > 0) _Line('ChargeSure credit', '− ${rupees(b.creditPaise)}'),
-                      _Line('You pay', rupees(b.payablePaise), bold: true),
+                      _Line('Charging total', rupees(b.totalPaise, exact: true), bold: true),
+                      if (b.creditPaise > 0)
+                        _Line('ChargeSure credit', '− ${rupees(b.creditPaise, exact: true)}', accent: true),
+                      _Line(paid ? 'You paid' : 'You pay', rupees(b.payablePaise, exact: true), bold: true),
                     ],
                   ),
                 ),
@@ -88,8 +180,13 @@ class _BillScreenState extends State<BillScreen> {
                     children: [
                       const Text('Where your money goes', style: TextStyle(fontWeight: FontWeight.w700)),
                       const SizedBox(height: 8),
-                      _Line('Host receives (85%)', rupees(b.hostSharePaise)),
-                      _Line('Voltra fee (15%)', rupees(b.platformFeePaise)),
+                      _Line('Host receives (85%)', rupees(b.hostSharePaise, exact: true)),
+                      _Line('Voltra fee (15%)', rupees(b.platformFeePaise, exact: true)),
+                      if (b.creditPaise > 0)
+                        const Text(
+                          'Voltra pays the ChargeSure credit; the host is still paid in full.',
+                          style: TextStyle(color: VoltraColors.muted, fontSize: 12),
+                        ),
                     ],
                   ),
                 ),
@@ -104,14 +201,18 @@ class _BillScreenState extends State<BillScreen> {
             child: Column(
               mainAxisSize: MainAxisSize.min,
               children: [
-                FilledButton.icon(
-                  icon: const Icon(Icons.payments_outlined),
-                  label: Text(b.status == 'PAID' ? 'Paid' : 'Pay ${rupees(b.payablePaise)} with UPI'),
-                  onPressed: null, // UPI payment lands in the next build
-                ),
-                const SizedBox(height: 4),
-                if (b.status != 'PAID')
-                  const Text('UPI payment arrives in the next build.', style: TextStyle(color: VoltraColors.muted)),
+                if (!paid)
+                  FilledButton.icon(
+                    icon: _paying
+                        ? const SizedBox(width: 18, height: 18, child: CircularProgressIndicator(strokeWidth: 2))
+                        : const Icon(Icons.payments_outlined),
+                    label: Text(
+                      b.payablePaise == 0
+                          ? 'Confirm (covered by ChargeSure credit)'
+                          : 'Pay ${rupees(b.payablePaise, exact: true)} with UPI',
+                    ),
+                    onPressed: _paying ? null : () => _pay(b),
+                  ),
                 TextButton(
                   onPressed: () => Navigator.of(context).popUntil((r) => r.isFirst),
                   child: const Text('Back to map'),
@@ -125,16 +226,111 @@ class _BillScreenState extends State<BillScreen> {
   }
 }
 
+/// Two-way ratings (PRD F14): the driver rates the host after paying.
+class _RatingCard extends StatefulWidget {
+  const _RatingCard({required this.bookingId, required this.user});
+
+  final int bookingId;
+  final AppUser user;
+
+  @override
+  State<_RatingCard> createState() => _RatingCardState();
+}
+
+class _RatingCardState extends State<_RatingCard> {
+  static const _tags = ['Easy to find', 'Charger worked well', 'Friendly host', 'Safe spot'];
+
+  int _stars = 0;
+  final Set<String> _picked = {};
+  bool _sending = false;
+  bool _done = false;
+
+  Future<void> _submit() async {
+    setState(() => _sending = true);
+    try {
+      await api.submitReview(
+        bookingId: widget.bookingId,
+        reviewerId: widget.user.id,
+        rating: _stars,
+        tags: _picked.toList(),
+      );
+      if (mounted) setState(() => _done = true);
+    } on ApiException catch (e) {
+      if (mounted) ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(e.message)));
+    } finally {
+      if (mounted) setState(() => _sending = false);
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    if (_done) {
+      return const Card(
+        child: ListTile(
+          leading: Icon(Icons.favorite, color: VoltraColors.darkGreen),
+          title: Text('Thanks for rating your host'),
+          subtitle: Text('Your rating shows on this charger’s listing.'),
+        ),
+      );
+    }
+    return Card(
+      child: Padding(
+        padding: const EdgeInsets.all(16),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            const Text('How was your charge?', style: TextStyle(fontSize: 17, fontWeight: FontWeight.w700)),
+            const SizedBox(height: 8),
+            Row(
+              children: [
+                for (var i = 1; i <= 5; i++)
+                  IconButton(
+                    tooltip: '$i star${i == 1 ? '' : 's'}',
+                    icon: Icon(i <= _stars ? Icons.star : Icons.star_border, color: VoltraColors.amber, size: 32),
+                    onPressed: () => setState(() => _stars = i),
+                  ),
+              ],
+            ),
+            Wrap(
+              spacing: 8,
+              runSpacing: 4,
+              children: [
+                for (final t in _tags)
+                  FilterChip(
+                    label: Text(t),
+                    selected: _picked.contains(t),
+                    onSelected: (on) => setState(() => on ? _picked.add(t) : _picked.remove(t)),
+                  ),
+              ],
+            ),
+            const SizedBox(height: 12),
+            FilledButton(
+              style: FilledButton.styleFrom(minimumSize: const Size.fromHeight(44)),
+              onPressed: _stars == 0 || _sending ? null : _submit,
+              child: const Text('Submit rating'),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
 class _Line extends StatelessWidget {
-  const _Line(this.label, this.value, {this.bold = false});
+  const _Line(this.label, this.value, {this.bold = false, this.accent = false});
 
   final String label;
   final String value;
   final bool bold;
+  final bool accent;
 
   @override
   Widget build(BuildContext context) {
-    final style = TextStyle(fontWeight: bold ? FontWeight.w700 : FontWeight.w400, fontSize: bold ? 17 : 15);
+    final style = TextStyle(
+      fontWeight: bold || accent ? FontWeight.w700 : FontWeight.w400,
+      fontSize: bold ? 17 : 15,
+      color: accent ? VoltraColors.darkGreen : null,
+    );
     return Padding(
       padding: const EdgeInsets.symmetric(vertical: 4),
       child: Row(

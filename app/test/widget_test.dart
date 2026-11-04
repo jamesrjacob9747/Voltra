@@ -25,6 +25,13 @@ void main() {
     expect(minutes(45), '45 min');
   });
 
+  test('ChargeSureOptions parses the CHARGER_OFFLINE detail (no "online" key)', () {
+    final o = ChargeSureOptions.fromJson({'code': 'CHARGER_OFFLINE', 'alternatives': [], 'credit_paise': 2000});
+    expect(o.online, isFalse);
+    expect(o.alternatives, isEmpty);
+    expect(rupees(o.creditPaise), '₹20');
+  });
+
   test('elapsed shows a stopwatch', () {
     expect(elapsed(2538), '00:42:18');
     expect(elapsed(8880), '02:28:00');

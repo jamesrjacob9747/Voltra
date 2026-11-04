@@ -58,6 +58,11 @@ class _ScanScreenState extends State<ScanScreen> {
       );
     } on ApiException catch (e) {
       if (!mounted) return;
+      if (e.code == 'CHARGER_OFFLINE') {
+        // Back to the booking, which reloads and shows ChargeSure's nearby options.
+        Navigator.of(context).pop();
+        return;
+      }
       setState(() {
         _starting = false;
         _error = e.message;
