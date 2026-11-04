@@ -8,7 +8,9 @@ Hackathon MVP. The core flow is **ChargeMatch → book → scan QR → live mete
 
 ```
 backend/   FastAPI API, algorithms, simulated smart plug, tests
-app/       Flutter app (to be added: run `flutter create` once Flutter is installed)
+app/       Flutter app (Android): driver and host modes
+qr/        Printable QR stickers for the 8 demo chargers (open qr/index.html)
+DEMO.md    Stage runbook: setup, the 5-minute script, fallbacks
 ```
 
 ## Backend: run it
@@ -36,6 +38,22 @@ cd backend
 python -m pytest -q
 ```
 
+## App: run it
+
+Built with Flutter 3.47. Needs an Android emulator or phone (`flutter devices` should list it).
+
+```bash
+cd app
+flutter pub get
+flutter run                                              # emulator: reaches the laptop at 10.0.2.2:8000
+flutter run --dart-define=API_URL=http://LAPTOP_IP:8000  # real phone on the same Wi-Fi
+```
+
+```bash
+flutter test      # unit tests
+flutter analyze
+```
+
 ## Demo data
 
 | User | id | Role |
@@ -47,6 +65,8 @@ python -m pytest -q
 Each charger's QR code is `voltra://charger/CHG001` … `CHG008`. CHG002 (Rahul) is about 350 m from CHG001 (Manoj), for the ChargeSure demo.
 
 ## Demo controls
+
+In the app: **Demo controls** on the login screen (charger on/off switches, reset). Or over HTTP:
 
 | Action | Call |
 |---|---|

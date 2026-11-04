@@ -94,6 +94,18 @@ def test_pending_booking_needs_host_accept(client):
     assert accepted.json()["status"] == "CONFIRMED"
 
 
+def test_host_dashboard_counts_only_todays_live_bookings(client):
+    arrived = _book(client, charger_id=1)
+    client.patch(f"/bookings/{arrived['id']}", json={"action": "arrive", "actor_id": ARJUN})
+    cancelled = _book(client, charger_id=1, start="2026-11-09T14:00", end="2026-11-09T15:00")
+    client.patch(f"/bookings/{cancelled['id']}", json={"action": "cancel", "actor_id": ARJUN})
+    _book(client, charger_id=1, start="2026-11-10T10:00", end="2026-11-10T11:00")  # tomorrow
+
+    dash = client.get(f"/host/{MANOJ}/dashboard").json()
+    assert dash["today"]["bookings"] == 1
+    assert [b["id"] for b in dash["upcoming"]][0] == arrived["id"]  # arrived drivers stay visible
+
+
 def test_chargesure_moves_booking_when_charger_goes_offline(client):
     booking = _book(client, charger_id=1)
     client.post("/admin/plugs/CHG001/online", json={"online": False})
