@@ -188,6 +188,7 @@ class Booking {
   final DateTime end;
   final int creditPaise;
   final int? transferredFromId;
+  final int? sessionId;
 
   const Booking({
     required this.id,
@@ -202,6 +203,7 @@ class Booking {
     required this.end,
     required this.creditPaise,
     required this.transferredFromId,
+    required this.sessionId,
   });
 
   factory Booking.fromJson(Map<String, dynamic> j) {
@@ -220,11 +222,98 @@ class Booking {
       end: _time(j['end_time']),
       creditPaise: j['credit_paise'] as int,
       transferredFromId: j['transferred_from_booking_id'] as int?,
+      sessionId: j['session_id'] as int?,
     );
   }
 
   bool get isActive => const {'PENDING', 'CONFIRMED', 'ARRIVED', 'CHARGING'}.contains(status);
   bool get canCancel => const {'PENDING', 'CONFIRMED', 'ARRIVED'}.contains(status);
+  bool get canStart => status == 'CONFIRMED' || status == 'ARRIVED';
+}
+
+/// GET /sessions/{id}/live: one reading from the smart plug plus the running bill.
+class LiveSession {
+  final int sessionId;
+  final int bookingId;
+  final String chargerName;
+  final String status; // CHARGING | COMPLETED
+  final bool online;
+  final double? voltage;
+  final double? current;
+  final double powerKw;
+  final double energyKwh;
+  final int durationS;
+  final int pricePerKwhPaise;
+  final int costPaise;
+  final double demoSpeed;
+
+  const LiveSession({
+    required this.sessionId,
+    required this.bookingId,
+    required this.chargerName,
+    required this.status,
+    required this.online,
+    required this.voltage,
+    required this.current,
+    required this.powerKw,
+    required this.energyKwh,
+    required this.durationS,
+    required this.pricePerKwhPaise,
+    required this.costPaise,
+    required this.demoSpeed,
+  });
+
+  factory LiveSession.fromJson(Map<String, dynamic> j) => LiveSession(
+    sessionId: j['session_id'] as int,
+    bookingId: j['booking_id'] as int,
+    chargerName: (j['charger'] as Map<String, dynamic>)['name'] as String,
+    status: j['status'] as String,
+    online: j['online'] as bool,
+    voltage: j['voltage'] == null ? null : _d(j['voltage']),
+    current: j['current'] == null ? null : _d(j['current']),
+    powerKw: _d(j['power_kw']),
+    energyKwh: _d(j['energy_kwh']),
+    durationS: j['duration_s'] as int,
+    pricePerKwhPaise: j['price_per_kwh_paise'] as int,
+    costPaise: j['cost_paise'] as int,
+    demoSpeed: _d(j['demo_speed']),
+  );
+
+  bool get completed => status == 'COMPLETED';
+}
+
+/// GET /payments/{booking_id}: the bill for a finished session.
+class Bill {
+  final int bookingId;
+  final String status; // PENDING | PAID
+  final double energyKwh;
+  final int totalPaise;
+  final int platformFeePaise;
+  final int hostSharePaise;
+  final int creditPaise;
+  final int payablePaise;
+
+  const Bill({
+    required this.bookingId,
+    required this.status,
+    required this.energyKwh,
+    required this.totalPaise,
+    required this.platformFeePaise,
+    required this.hostSharePaise,
+    required this.creditPaise,
+    required this.payablePaise,
+  });
+
+  factory Bill.fromJson(Map<String, dynamic> j) => Bill(
+    bookingId: j['booking_id'] as int,
+    status: j['status'] as String,
+    energyKwh: _d(j['energy_kwh']),
+    totalPaise: j['total_paise'] as int,
+    platformFeePaise: j['platform_fee_paise'] as int,
+    hostSharePaise: j['host_share_paise'] as int,
+    creditPaise: j['credit_paise'] as int,
+    payablePaise: j['payable_paise'] as int,
+  );
 }
 
 class HostDashboard {

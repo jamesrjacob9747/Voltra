@@ -8,6 +8,7 @@ void main() {
     expect(rupees(1200), '₹12');
     expect(rupees(333), '₹3.33');
     expect(pricePerKwh(1100), '₹11/kWh');
+    expect(rupees(100, exact: true), '₹1.00');
   });
 
   test('distance switches from metres to km', () {
@@ -24,6 +25,43 @@ void main() {
     expect(minutes(45), '45 min');
   });
 
+  test('elapsed shows a stopwatch', () {
+    expect(elapsed(2538), '00:42:18');
+    expect(elapsed(8880), '02:28:00');
+  });
+
+  test('LiveSession and Bill parse the PRD billing example', () {
+    final s = LiveSession.fromJson({
+      'session_id': 1,
+      'booking_id': 1,
+      'charger': {'id': 1, 'name': "Manoj's Home Charger"},
+      'status': 'COMPLETED',
+      'online': true,
+      'voltage': null,
+      'current': null,
+      'power_kw': 0.0,
+      'energy_kwh': 1.85,
+      'duration_s': 8880,
+      'price_per_kwh_paise': 1200,
+      'cost_paise': 2220,
+      'demo_speed': 30.0,
+    });
+    expect(s.completed, isTrue);
+    expect(rupees(s.costPaise), '₹22.20');
+
+    final b = Bill.fromJson({
+      'booking_id': 1,
+      'status': 'PENDING',
+      'energy_kwh': 1.85,
+      'total_paise': 2220,
+      'platform_fee_paise': 333,
+      'host_share_paise': 1887,
+      'credit_paise': 0,
+      'payable_paise': 2220,
+    });
+    expect(b.platformFeePaise + b.hostSharePaise, b.totalPaise);
+  });
+
   test('Booking and MatchEstimate parse server payloads', () {
     final b = Booking.fromJson({
       'id': 3,
@@ -35,10 +73,12 @@ void main() {
       'end_time': '2026-11-04T16:05',
       'credit_paise': 0,
       'transferred_from_booking_id': null,
+      'session_id': null,
     });
     expect(b.start, DateTime(2026, 11, 4, 14, 5));
     expect(b.canCancel, isTrue);
     expect(b.isActive, isTrue);
+    expect(b.canStart, isFalse); // pending: host hasn't confirmed yet
 
     final e = MatchEstimate.fromJson({
       'energy_kwh': 1.83,

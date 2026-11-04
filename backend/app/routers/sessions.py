@@ -84,7 +84,8 @@ def live_view(db: Session, session: ChargingSession) -> dict:
         "current": reading.current if reading else None,
         "power_kw": round(reading.power_w / 1000, 2) if reading else 0.0,
         "energy_kwh": kwh,
-        "duration_s": int(((session.ended_at or now) - session.started_at).total_seconds()),
+        # Same simulated clock as the energy, so kWh / duration always matches the power shown.
+        "duration_s": int(((session.ended_at or now) - session.started_at).total_seconds() * plug.demo_speed),
         "price_per_kwh_paise": session.price_per_kwh_paise,
         "cost_paise": bill.total_paise,
         "demo_speed": plug.demo_speed,
