@@ -7,6 +7,7 @@ import '../format.dart';
 import '../models.dart';
 import '../theme.dart';
 import '../widgets/booking_status.dart';
+import '../widgets/chargesure_panel.dart';
 import '../widgets/error_view.dart';
 import 'bill_screen.dart';
 import 'live_session_screen.dart';
@@ -26,6 +27,8 @@ class BookingScreen extends StatefulWidget {
 class _BookingScreenState extends State<BookingScreen> {
   Booking? _booking;
   Charger? _charger;
+  ChargeSureOptions? _chargeSure; // set while the booked charger is offline
+  int? _movingTo;
   String? _error;
   bool _busy = false;
   Timer? _poll;
@@ -35,8 +38,43 @@ class _BookingScreenState extends State<BookingScreen> {
     super.initState();
     _load();
     _poll = Timer.periodic(const Duration(seconds: 3), (_) {
-      if (_booking?.status == 'PENDING') _load();
+      final b = _booking;
+      if (b?.status == 'PENDING') {
+        _load();
+      } else if (b != null && b.canStart) {
+        _checkHealth(b);
+      }
     });
+  }
+
+  /// Watches the booked charger's heartbeat until the session starts, so ChargeSure
+  /// can step in before the driver even arrives.
+  Future<void> _checkHealth(Booking b) async {
+    try {
+      final health = await api.bookingHealth(b.id);
+      if (mounted) setState(() => _chargeSure = health.online ? null : health);
+    } on ApiException {
+      // Keep the last known state; the next poll retries.
+    }
+  }
+
+  Future<void> _moveTo(Charger target) async {
+    setState(() => _movingTo = target.id);
+    try {
+      final moved = await api.transferBooking(widget.bookingId, target.id);
+      if (!mounted) return;
+      ScaffoldMessenger.of(context)
+          .showSnackBar(SnackBar(content: Text('Moved to ${target.name}. ${rupees(moved.creditPaise)} credit added.')));
+      Navigator.of(context).pushReplacement(
+        MaterialPageRoute(
+          builder: (_) => BookingScreen(bookingId: moved.id, user: widget.user),
+        ),
+      );
+    } on ApiException catch (e) {
+      if (!mounted) return;
+      setState(() => _movingTo = null);
+      ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(e.message)));
+    }
   }
 
   @override
@@ -57,6 +95,7 @@ class _BookingScreenState extends State<BookingScreen> {
           _error = null;
         });
       }
+      if (booking.canStart) await _checkHealth(booking);
     } on ApiException catch (e) {
       if (mounted) setState(() => _error = e.message);
     }
@@ -137,6 +176,15 @@ class _BookingScreenState extends State<BookingScreen> {
                   style: TextStyle(color: VoltraColors.muted),
                 ),
               ],
+              if (_chargeSure != null && b.canStart) ...[
+                const SizedBox(height: 16),
+                ChargeSurePanel(
+                  failedChargerName: b.chargerName,
+                  options: _chargeSure!,
+                  movingToId: _movingTo,
+                  onMove: _moveTo,
+                ),
+              ],
               const SizedBox(height: 16),
               Card(
                 child: Padding(
@@ -198,7 +246,7 @@ class _BookingScreenState extends State<BookingScreen> {
             child: Column(
               mainAxisSize: MainAxisSize.min,
               children: [
-                if (b.canStart)
+                if (b.canStart && _chargeSure == null) // offline: ChargeSure's buttons take over
                   FilledButton.icon(
                     icon: const Icon(Icons.qr_code_scanner),
                     label: const Text('Scan QR to start charging'),

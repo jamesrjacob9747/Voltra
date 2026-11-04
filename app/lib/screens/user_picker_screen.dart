@@ -6,6 +6,7 @@ import '../models.dart';
 import '../theme.dart';
 import '../widgets/error_view.dart';
 import 'host_dashboard_screen.dart';
+import 'demo_controls_screen.dart';
 import 'map_screen.dart';
 
 /// Demo login: pick a seeded user. Phone OTP replaces this later.
@@ -52,7 +53,20 @@ class _UserPickerScreenState extends State<UserPickerScreen> {
                   style: TextStyle(color: Color(0xFFB8C4D0), fontSize: 16),
                 ),
                 const SizedBox(height: 40),
-                const Text('Continue as', style: TextStyle(color: Colors.white, fontSize: 18)),
+                Row(
+                  children: [
+                    const Expanded(
+                      child: Text('Continue as', style: TextStyle(color: Colors.white, fontSize: 18)),
+                    ),
+                    TextButton.icon(
+                      style: TextButton.styleFrom(foregroundColor: const Color(0xFFB8C4D0)),
+                      icon: const Icon(Icons.tune, size: 18),
+                      label: const Text('Demo controls'),
+                      onPressed: () =>
+                          Navigator.of(context).push(MaterialPageRoute(builder: (_) => const DemoControlsScreen())),
+                    ),
+                  ],
+                ),
                 const SizedBox(height: 12),
                 Expanded(
                   child: FutureBuilder<List<AppUser>>(

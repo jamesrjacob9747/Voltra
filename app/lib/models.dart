@@ -282,6 +282,21 @@ class LiveSession {
   bool get completed => status == 'COMPLETED';
 }
 
+/// GET /bookings/{id}/health, or the CHARGER_OFFLINE detail from /sessions/start.
+class ChargeSureOptions {
+  final bool online;
+  final List<Charger> alternatives; // ranked best first; distance is from the failed charger
+  final int creditPaise;
+
+  const ChargeSureOptions({required this.online, required this.alternatives, required this.creditPaise});
+
+  factory ChargeSureOptions.fromJson(Map<String, dynamic> j) => ChargeSureOptions(
+    online: j['online'] as bool? ?? false,
+    alternatives: (j['alternatives'] as List<dynamic>).map((c) => Charger.fromJson(c as Map<String, dynamic>)).toList(),
+    creditPaise: j['credit_paise'] as int,
+  );
+}
+
 /// GET /payments/{booking_id}: the bill for a finished session.
 class Bill {
   final int bookingId;
