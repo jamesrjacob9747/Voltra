@@ -41,7 +41,12 @@ class _ChargerDetailsScreenState extends State<ChargerDetailsScreen> {
         future: _charger,
         builder: (context, snap) {
           if (snap.hasError) {
-            return ErrorView(message: '${snap.error}', onRetry: () => setState(() => _charger = _load()));
+            return ErrorView(
+              message: '${snap.error}',
+              onRetry: () => setState(() {
+                _charger = _load();
+              }),
+            );
           }
           if (!snap.hasData) return const Center(child: CircularProgressIndicator());
           return _Details(charger: snap.data!, user: widget.user);

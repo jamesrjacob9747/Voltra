@@ -6,7 +6,7 @@ from sqlalchemy import select
 
 from .db import SessionLocal, create_schema
 from .models import User
-from .routers import admin, bookings, chargers, host, match, payments, reviews, sessions, telemetry, users
+from .routers import admin, bookings, chargers, host, impact, match, payments, reviews, sessions, telemetry, users
 from .seed import seed
 from .services import plug
 
@@ -23,7 +23,7 @@ async def lifespan(_: FastAPI):
 app = FastAPI(title="Voltra API", version="0.1.0", lifespan=lifespan)
 app.add_middleware(CORSMiddleware, allow_origins=["*"], allow_methods=["*"], allow_headers=["*"])
 
-for module in (users, chargers, match, bookings, sessions, payments, reviews, host, telemetry, admin):
+for module in (users, chargers, match, bookings, sessions, payments, reviews, host, impact, telemetry, admin):
     app.include_router(module.router)
 
 

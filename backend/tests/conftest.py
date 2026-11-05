@@ -2,9 +2,13 @@ import os
 import tempfile
 from datetime import datetime, timedelta
 
-# Point the app at a throwaway SQLite file before it is imported.
+# Point the app at a throwaway SQLite file, and blank anything a developer's backend/.env might
+# set (Supabase, Razorpay keys, admin token), before the app is imported. load_dotenv() never
+# overrides variables that are already set.
 os.environ["DATABASE_URL"] = "sqlite:///" + os.path.join(tempfile.gettempdir(), "voltra_test.db")
-os.environ["RAZORPAY_KEY_ID"] = ""
+for name in ("RAZORPAY_KEY_ID", "RAZORPAY_KEY_SECRET", "ADMIN_TOKEN"):
+    os.environ[name] = ""
+os.environ["DEMO_ENDPOINTS"] = "true"
 
 import pytest  # noqa: E402
 from fastapi.testclient import TestClient  # noqa: E402

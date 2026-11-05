@@ -142,6 +142,9 @@ class MatchEstimate {
   final DateTime finishAt;
   final int estCostPaise;
 
+  /// A cheaper start (off-peak or after the evening peak) that still finishes by ready-by.
+  final CheaperLater? cheaperLater;
+
   const MatchEstimate({
     required this.energyKwh,
     required this.powerKw,
@@ -149,6 +152,7 @@ class MatchEstimate {
     required this.arriveAt,
     required this.finishAt,
     required this.estCostPaise,
+    this.cheaperLater,
   });
 
   factory MatchEstimate.fromJson(Map<String, dynamic> j) => MatchEstimate(
@@ -158,6 +162,31 @@ class MatchEstimate {
     arriveAt: _time(j['arrive_at']),
     finishAt: _time(j['finish_at']),
     estCostPaise: j['est_cost_paise'] as int,
+    cheaperLater: j['cheaper_later'] == null ? null : CheaperLater.fromJson(j['cheaper_later'] as Map<String, dynamic>),
+  );
+}
+
+class CheaperLater {
+  final DateTime startAt;
+  final DateTime finishAt;
+  final int pricePerKwhPaise;
+  final int estCostPaise;
+  final int savingPaise;
+
+  const CheaperLater({
+    required this.startAt,
+    required this.finishAt,
+    required this.pricePerKwhPaise,
+    required this.estCostPaise,
+    required this.savingPaise,
+  });
+
+  factory CheaperLater.fromJson(Map<String, dynamic> j) => CheaperLater(
+    startAt: _time(j['start_at']),
+    finishAt: _time(j['finish_at']),
+    pricePerKwhPaise: j['price_per_kwh_paise'] as int,
+    estCostPaise: j['est_cost_paise'] as int,
+    savingPaise: j['saving_paise'] as int,
   );
 }
 
@@ -279,6 +308,49 @@ class LiveSession {
   );
 
   bool get completed => status == 'COMPLETED';
+}
+
+/// GET /impact: what the Voltra network has delivered so far (track record partly estimated).
+class Impact {
+  final int chargers;
+  final int verifiedChargers;
+  final int hosts;
+  final int sessionsCompleted;
+  final double kwhShared;
+  final int hostEarningsPaise;
+  final int chargesureRescues;
+  final double petrolLitresAvoided;
+  final double co2KgAvoided;
+  final int estimatedSessions;
+  final Map<String, double> factors;
+
+  const Impact({
+    required this.chargers,
+    required this.verifiedChargers,
+    required this.hosts,
+    required this.sessionsCompleted,
+    required this.kwhShared,
+    required this.hostEarningsPaise,
+    required this.chargesureRescues,
+    required this.petrolLitresAvoided,
+    required this.co2KgAvoided,
+    required this.estimatedSessions,
+    required this.factors,
+  });
+
+  factory Impact.fromJson(Map<String, dynamic> j) => Impact(
+    chargers: j['chargers'] as int,
+    verifiedChargers: j['verified_chargers'] as int,
+    hosts: j['hosts'] as int,
+    sessionsCompleted: j['sessions_completed'] as int,
+    kwhShared: _d(j['kwh_shared']),
+    hostEarningsPaise: j['host_earnings_paise'] as int,
+    chargesureRescues: j['chargesure_rescues'] as int,
+    petrolLitresAvoided: _d(j['petrol_litres_avoided']),
+    co2KgAvoided: _d(j['co2_kg_avoided']),
+    estimatedSessions: j['estimated_sessions'] as int,
+    factors: (j['factors'] as Map<String, dynamic>).map((k, v) => MapEntry(k, _d(v))),
+  );
 }
 
 /// GET /bookings/{id}/health, or the CHARGER_OFFLINE detail from /sessions/start.

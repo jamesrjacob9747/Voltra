@@ -1,4 +1,5 @@
 from dataclasses import replace
+from datetime import datetime
 
 from app.routers import admin
 
@@ -82,6 +83,61 @@ def test_chargematch_returns_ranked_compatible_chargers(client):
     assert scores == sorted(scores, reverse=True)
     assert all(r["connector_type"] == "15A" for r in body["results"])  # Ather can't use TYPE2
     assert body["best"]["estimate"]["energy_kwh"] == 1.83
+    # Daytime, ready by 5 PM: everything is normal price, so there is no cheaper later slot.
+    assert all(r["estimate"]["cheaper_later"] is None for r in body["results"])
+
+
+def _match_manoj(client, ready_by: str) -> dict:
+    body = client.post(
+        "/match",
+        json={
+            "vehicle_id": _arjun_vehicle(client),
+            "current_pct": 25,
+            "target_pct": 80,
+            "ready_by": ready_by,
+            "lat": MANOJ_LAT,
+            "lng": MANOJ_LNG,
+            "radius_km": 2,
+        },
+    ).json()
+    return next(r for r in body["results"] if r["id"] == 1)  # Manoj's charger, ₹12 base
+
+
+def test_evening_search_offers_cheaper_off_peak_slot(client, clock):
+    clock.now = datetime(2026, 11, 9, 19, 0)  # evening peak: ₹12 → ₹14.40
+    manoj = _match_manoj(client, ready_by="07:00")  # tomorrow morning
+    est = manoj["estimate"]
+    later = est["cheaper_later"]
+    assert later is not None
+    # Earliest off-peak start (₹9.60) that finishes by 7 AM: midnight, done 146.7 min later.
+    assert later["start_at"] == "2026-11-10T00:00"
+    assert later["finish_at"] == "2026-11-10T02:26"  # 02:26:40, shown to the minute
+    assert later["price_per_kwh_paise"] == 960
+    assert later["saving_paise"] == est["est_cost_paise"] - later["est_cost_paise"]
+    assert later["saving_paise"] > 800  # about a third off for 1.83 kWh
+
+    # Reserving the suggested slot works, and starting it at midnight locks the off-peak price.
+    booking = _book(client, charger_id=1, start=later["start_at"], end=later["finish_at"])
+    clock.now = datetime(2026, 11, 10, 0, 0)
+    start = client.post("/sessions/start", json={"booking_id": booking["id"], "qr": "voltra://charger/CHG001"})
+    assert start.json()["price_per_kwh_paise"] == 960
+
+
+def test_cheaper_slot_is_not_offered_when_already_booked(client, clock):
+    clock.now = datetime(2026, 11, 9, 19, 0)
+    # Priya holds Manoj's charger for the whole off-peak window.
+    taken = client.post(
+        "/bookings",
+        json={
+            "driver_id": 4,
+            "charger_id": 1,
+            "start_time": "2026-11-10T00:00",
+            "end_time": "2026-11-10T06:00",
+        },
+    )
+    assert taken.status_code == 201
+    # Normal-price evening slots would run past midnight, so nothing cheaper is free.
+    assert _match_manoj(client, ready_by="07:00")["estimate"]["cheaper_later"] is None
 
 
 def test_full_journey_bills_from_the_meter(client, clock):
@@ -206,6 +262,35 @@ def test_add_charger_rejects_bad_input(client):
     ]
     for override in bad:
         assert client.post("/chargers", json={**NEW_CHARGER, **override}).status_code == 422, override
+
+
+def test_impact_from_the_seeded_track_record(client):
+    imp = client.get("/impact").json()
+    # 8 seeded chargers from 4 hosts, with 391 successful sessions between them.
+    assert (imp["chargers"], imp["verified_chargers"], imp["hosts"]) == (8, 8, 4)
+    assert imp["sessions_completed"] == 391 and imp["estimated_sessions"] == 391
+    assert imp["kwh_shared"] == 703.8  # 391 × 1.8 kWh estimate
+    assert imp["petrol_litres_avoided"] == 422.3  # 30 km/kWh ÷ 50 km/L = 0.6 L per kWh
+    assert imp["co2_kg_avoided"] == 468.7  # petrol CO₂ minus grid CO₂ for the same kWh
+    assert imp["chargesure_rescues"] == 0
+    assert imp["factors"]["grid_co2_kg_per_kwh"] == 0.72
+
+
+def test_impact_adds_real_metered_sessions_and_rescues(client, clock):
+    booking = _book(client, charger_id=1)
+    session = client.post("/sessions/start", json={"booking_id": booking["id"], "qr": "voltra://charger/CHG001"})
+    clock.advance(minutes=148)  # 1.85 kWh at the Ather's 0.75 kW
+    client.post(f"/sessions/{session.json()['session_id']}/stop")
+
+    imp = client.get("/impact").json()
+    assert imp["sessions_completed"] == 392
+    assert imp["estimated_sessions"] == 391  # the real one is metered, not estimated
+    assert imp["kwh_shared"] == round(1.85 + 391 * 1.8, 1)
+
+    moved = _book(client, charger_id=1, start="2026-11-09T14:00", end="2026-11-09T15:00")
+    client.post("/admin/plugs/CHG001/online", json={"online": False})
+    client.post(f"/bookings/{moved['id']}/transfer", json={"to_charger_id": 2})
+    assert client.get("/impact").json()["chargesure_rescues"] == 1
 
 
 def test_chargesure_moves_booking_when_charger_goes_offline(client):

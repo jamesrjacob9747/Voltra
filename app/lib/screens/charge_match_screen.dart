@@ -91,15 +91,16 @@ class _ChargeMatchScreenState extends State<ChargeMatchScreen> {
     }
   }
 
-  Future<void> _reserve(MatchResult r) async {
+  /// Reserves the match's slot, or the cheaper later slot when [later] is given.
+  Future<void> _reserve(MatchResult r, {CheaperLater? later}) async {
     setState(() => _reservingId = r.charger.id);
     try {
       final booking = await api.createBooking(
         driverId: widget.user.id,
         chargerId: r.charger.id,
         vehicleId: _vehicle!.id,
-        start: r.estimate.arriveAt,
-        end: r.estimate.finishAt,
+        start: later?.startAt ?? r.estimate.arriveAt,
+        end: later?.finishAt ?? r.estimate.finishAt,
       );
       if (!mounted) return;
       Navigator.of(context).pushReplacement(
@@ -249,6 +250,9 @@ class _ChargeMatchScreenState extends State<ChargeMatchScreen> {
           best: i == 0,
           reserving: _reservingId == r.charger.id,
           onReserve: _reservingId == null ? () => _reserve(r) : null,
+          onReserveLater: _reservingId == null && r.estimate.cheaperLater != null
+              ? () => _reserve(r, later: r.estimate.cheaperLater)
+              : null,
         ),
         const SizedBox(height: 12),
       ],
@@ -257,12 +261,19 @@ class _ChargeMatchScreenState extends State<ChargeMatchScreen> {
 }
 
 class _ResultCard extends StatelessWidget {
-  const _ResultCard({required this.result, required this.best, required this.reserving, required this.onReserve});
+  const _ResultCard({
+    required this.result,
+    required this.best,
+    required this.reserving,
+    required this.onReserve,
+    required this.onReserveLater,
+  });
 
   final MatchResult result;
   final bool best;
   final bool reserving;
   final VoidCallback? onReserve;
+  final VoidCallback? onReserveLater;
 
   @override
   Widget build(BuildContext context) {
@@ -327,8 +338,64 @@ class _ResultCard extends StatelessWidget {
                   ? const SizedBox(width: 20, height: 20, child: CircularProgressIndicator(strokeWidth: 2))
                   : Text('Reserve ${clock(e.arriveAt)}–${clock(e.finishAt)}'),
             ),
+            if (e.cheaperLater case final later?) ...[
+              const SizedBox(height: 12),
+              _CheaperLaterOffer(later: later, arriveAt: e.arriveAt, onReserve: onReserveLater),
+            ],
           ],
         ),
+      ),
+    );
+  }
+}
+
+/// "Charge later, save ₹X": the same charge in a cheaper (off-peak) slot that still meets ready-by.
+class _CheaperLaterOffer extends StatelessWidget {
+  const _CheaperLaterOffer({required this.later, required this.arriveAt, required this.onReserve});
+
+  final CheaperLater later;
+  final DateTime arriveAt;
+  final VoidCallback? onReserve;
+
+  @override
+  Widget build(BuildContext context) {
+    final nextDay = later.startAt.day != arriveAt.day;
+    final start = '${clock(later.startAt)}${nextDay ? ' (tonight)' : ''}';
+    return Container(
+      padding: const EdgeInsets.all(12),
+      decoration: BoxDecoration(
+        color: VoltraColors.darkGreen.withValues(alpha: 0.08),
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(color: VoltraColors.darkGreen.withValues(alpha: 0.4)),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              const Icon(Icons.nightlight_round, size: 18, color: VoltraColors.darkGreen),
+              const SizedBox(width: 6),
+              Expanded(
+                child: Text(
+                  'Charge later, save ${rupees(later.savingPaise, exact: true)}',
+                  style: const TextStyle(color: VoltraColors.darkGreen, fontWeight: FontWeight.w800),
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 4),
+          Text(
+            'Start $start at ${pricePerKwh(later.pricePerKwhPaise)} and still be ready by ${clock(later.finishAt)}. '
+            'Total ≈ ${rupees(later.estCostPaise)}. Off-peak charging also eases the grid.',
+            style: const TextStyle(color: VoltraColors.ink),
+          ),
+          const SizedBox(height: 8),
+          OutlinedButton(
+            style: OutlinedButton.styleFrom(minimumSize: const Size.fromHeight(44)),
+            onPressed: onReserve,
+            child: Text('Reserve ${clock(later.startAt)}–${clock(later.finishAt)} instead'),
+          ),
+        ],
       ),
     );
   }

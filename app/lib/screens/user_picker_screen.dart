@@ -7,6 +7,7 @@ import '../theme.dart';
 import '../widgets/error_view.dart';
 import 'host_dashboard_screen.dart';
 import 'demo_controls_screen.dart';
+import 'impact_screen.dart';
 import 'map_screen.dart';
 
 /// Demo login: pick a seeded user. Phone OTP replaces this later.
@@ -52,7 +53,17 @@ class _UserPickerScreenState extends State<UserPickerScreen> {
                   "Your neighbour's charger, your next charge.",
                   style: TextStyle(color: Color(0xFFB8C4D0), fontSize: 16),
                 ),
-                const SizedBox(height: 40),
+                const SizedBox(height: 16),
+                OutlinedButton.icon(
+                  style: OutlinedButton.styleFrom(
+                    foregroundColor: VoltraColors.green,
+                    side: const BorderSide(color: VoltraColors.green),
+                  ),
+                  icon: const Icon(Icons.eco_outlined),
+                  label: const Text('See Voltra’s impact'),
+                  onPressed: () => Navigator.of(context).push(MaterialPageRoute(builder: (_) => const ImpactScreen())),
+                ),
+                const SizedBox(height: 24),
                 Row(
                   children: [
                     const Expanded(
@@ -76,7 +87,9 @@ class _UserPickerScreenState extends State<UserPickerScreen> {
                         return Card(
                           child: ErrorView(
                             message: '${snap.error}',
-                            onRetry: () => setState(() => _users = api.users()),
+                            onRetry: () => setState(() {
+                              _users = api.users();
+                            }),
                           ),
                         );
                       }

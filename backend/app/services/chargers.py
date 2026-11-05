@@ -194,6 +194,46 @@ def alternatives_for(db: Session, booking: Booking, now: datetime) -> list[dict]
     return results
 
 
+CHEAPER_LATER_STEP = timedelta(minutes=30)
+CHEAPER_LATER_MIN_SAVING_PAISE = 100  # only worth showing from ₹1
+
+
+def cheaper_later(
+    db: Session, charger: Charger, *, need_kwh: float, duration: timedelta, arrive: datetime, ready_by: datetime
+) -> dict | None:
+    """The cheapest later start that still finishes by ready_by, if it saves at least ₹1.
+
+    The price is locked at the hour a session starts (sessions.start_session), so a driver who
+    reserves this slot and starts it really pays this price. Among the cheapest reachable price
+    levels, the earliest free half-hour slot wins.
+    """
+    base = charger.base_price_per_kwh_paise
+    now_cost = round(need_kwh * price_at(base, arrive.hour))
+
+    first = arrive.replace(second=0, microsecond=0)
+    first += timedelta(minutes=(30 - first.minute % 30) % 30)  # next :00 or :30
+    starts = []
+    t = first
+    while t + duration <= ready_by:
+        starts.append(t)
+        t += CHEAPER_LATER_STEP
+
+    for level in sorted({price_at(base, s.hour) for s in starts}):
+        cost = round(need_kwh * level)
+        if now_cost - cost < CHEAPER_LATER_MIN_SAVING_PAISE:
+            break  # higher levels save even less
+        for s in (s for s in starts if price_at(base, s.hour) == level):
+            if slot_free(db, charger, s, s + duration):
+                return {
+                    "start_at": s.isoformat(timespec="minutes"),
+                    "finish_at": (s + duration).isoformat(timespec="minutes"),
+                    "price_per_kwh_paise": level,
+                    "est_cost_paise": cost,
+                    "saving_paise": now_cost - cost,
+                }
+    return None
+
+
 def match_chargers(
     db: Session,
     *,
@@ -233,6 +273,9 @@ def match_chargers(
             "arrive_at": arrive.isoformat(timespec="minutes"),
             "finish_at": finish.isoformat(timespec="minutes"),
             "est_cost_paise": round(need_kwh * price),
+            "cheaper_later": cheaper_later(
+                db, c, need_kwh=need_kwh, duration=finish - arrive, arrive=arrive, ready_by=ready_by
+            ),
         }
 
     results = []
