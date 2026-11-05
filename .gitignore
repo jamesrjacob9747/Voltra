@@ -7,6 +7,10 @@ __pycache__/
 backend/.env
 backend/*.db
 
+# Firebase: the service-account key is a secret; google-services.json is per-project config.
+*service-account*.json
+google-services.json
+
 # Flutter build output and tooling are ignored by app/.gitignore and app/android/.gitignore.
 
 # Editors / OS

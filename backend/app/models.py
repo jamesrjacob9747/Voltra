@@ -1,6 +1,6 @@
 from datetime import datetime
 
-from sqlalchemy import Boolean, DateTime, Float, ForeignKey, Integer, String
+from sqlalchemy import Boolean, DateTime, Float, ForeignKey, Integer, String, UniqueConstraint
 from sqlalchemy.orm import Mapped, mapped_column
 
 from .config import local_now
@@ -117,6 +117,17 @@ class Review(Base):
     tags: Mapped[str] = mapped_column(String(200), default="")
     comment: Mapped[str] = mapped_column(String(500), default="")
     created_at: Mapped[datetime] = mapped_column(DateTime, default=local_now)
+
+
+class DeviceToken(Base):
+    """A phone's Firebase Cloud Messaging token. One phone can carry several users (demo logins)."""
+
+    __tablename__ = "device_tokens"
+    __table_args__ = (UniqueConstraint("user_id", "token"),)
+    id: Mapped[int] = mapped_column(primary_key=True)
+    user_id: Mapped[int] = mapped_column(ForeignKey("users.id"), index=True)
+    token: Mapped[str] = mapped_column(String(512))
+    updated_at: Mapped[datetime] = mapped_column(DateTime, default=local_now)
 
 
 class Telemetry(Base):

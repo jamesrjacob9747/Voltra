@@ -85,3 +85,7 @@ class ReviewCreate(BaseModel):
 
 class PlugOnline(BaseModel):
     online: bool
+
+
+class DeviceTokenIn(BaseModel):
+    token: str = Field(min_length=20, max_length=512)  # Firebase Cloud Messaging registration token

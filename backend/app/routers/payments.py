@@ -2,15 +2,15 @@ import hashlib
 import hmac
 
 import httpx
-from fastapi import APIRouter, Depends, HTTPException
+from fastapi import APIRouter, BackgroundTasks, Depends, HTTPException
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
 from ..config import settings
 from ..db import get_db
-from ..models import Payment
+from ..models import Booking, Charger, Payment, User
 from ..schemas import PaymentVerify
-from ..services import plug
+from ..services import plug, push
 from .admin import require_demo_endpoints
 
 router = APIRouter(prefix="/payments", tags=["payments"])
@@ -40,10 +40,18 @@ def payment_view(p: Payment) -> dict:
     }
 
 
-def _mark_paid(db: Session, payment: Payment) -> dict:
+def _mark_paid(db: Session, payment: Payment, background: BackgroundTasks) -> dict:
     payment.status = "PAID"
     payment.paid_at = plug.clock()
     db.commit()
+
+    booking = db.get(Booking, payment.booking_id)
+    charger = db.get(Charger, booking.charger_id)
+    driver = db.get(User, booking.driver_id).name
+    text = f"You earned {push.rupees(payment.host_share_paise)} from {driver}'s charge at {charger.name}."
+    background.add_task(
+        push.notify, charger.host_id, "Payment received", text, type="earnings", booking_id=str(booking.id)
+    )
     return payment_view(payment)
 
 
@@ -82,7 +90,7 @@ def create_order(booking_id: int, db: Session = Depends(get_db)):
 
 
 @router.post("/verify")
-def verify_payment(body: PaymentVerify, db: Session = Depends(get_db)):
+def verify_payment(body: PaymentVerify, background: BackgroundTasks, db: Session = Depends(get_db)):
     if not settings.razorpay_key_secret:
         raise HTTPException(409, "Razorpay is not configured on this server")
     payment = _payment(db, body.booking_id)
@@ -97,16 +105,16 @@ def verify_payment(body: PaymentVerify, db: Session = Depends(get_db)):
         raise HTTPException(400, "Payment signature is invalid")
     if payment.status == "PAID":  # the app retried after a dropped connection
         return payment_view(payment)
-    return _mark_paid(db, payment)
+    return _mark_paid(db, payment, background)
 
 
 @router.post("/{booking_id}/demo-pay", dependencies=[Depends(require_demo_endpoints)])
-def demo_pay(booking_id: int, db: Session = Depends(get_db)):
+def demo_pay(booking_id: int, background: BackgroundTasks, db: Session = Depends(get_db)):
     """Demo fallback when Razorpay is not configured or misbehaves on stage."""
     payment = _payment(db, booking_id)
     if payment.status == "PAID":
         raise HTTPException(409, "Already paid")
-    return _mark_paid(db, payment)
+    return _mark_paid(db, payment, background)
 
 
 @router.get("/{booking_id}")

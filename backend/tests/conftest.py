@@ -6,7 +6,7 @@ from datetime import datetime, timedelta
 # set (Supabase, Razorpay keys, admin token), before the app is imported. load_dotenv() never
 # overrides variables that are already set.
 os.environ["DATABASE_URL"] = "sqlite:///" + os.path.join(tempfile.gettempdir(), "voltra_test.db")
-for name in ("RAZORPAY_KEY_ID", "RAZORPAY_KEY_SECRET", "ADMIN_TOKEN"):
+for name in ("RAZORPAY_KEY_ID", "RAZORPAY_KEY_SECRET", "ADMIN_TOKEN", "FIREBASE_SERVICE_ACCOUNT_FILE"):
     os.environ[name] = ""
 os.environ["DEMO_ENDPOINTS"] = "true"
 

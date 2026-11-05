@@ -27,4 +27,5 @@ def test_row_level_security_only_on_postgres():
     assert rls_statements("sqlite") == []
     statements = rls_statements("postgresql")
     assert 'ALTER TABLE "chargers" ENABLE ROW LEVEL SECURITY' in statements
-    assert len(statements) == 8  # every Voltra table
+    assert 'ALTER TABLE "device_tokens" ENABLE ROW LEVEL SECURITY' in statements  # push tokens stay private
+    assert len(statements) == 9  # every Voltra table
