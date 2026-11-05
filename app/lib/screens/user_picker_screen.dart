@@ -1,8 +1,11 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
 import '../api.dart';
 import '../models.dart';
+import '../push.dart';
 import '../theme.dart';
 import '../widgets/error_view.dart';
 import 'host_dashboard_screen.dart';
@@ -22,6 +25,7 @@ class _UserPickerScreenState extends State<UserPickerScreen> {
   late Future<List<AppUser>> _users = api.users();
 
   void _open(AppUser user) {
+    unawaited(Push.signedIn(user.id)); // in the background: login never waits for Firebase
     final screen = user.canDrive ? MapScreen(user: user) : HostDashboardScreen(user: user);
     Navigator.of(context).pushReplacement(MaterialPageRoute(builder: (_) => screen));
   }

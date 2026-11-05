@@ -34,6 +34,9 @@ class Settings:
     admin_token: str = os.getenv("ADMIN_TOKEN", "")
     # Bookings, "today" and peak pricing are wall-clock times in this zone, wherever the server runs.
     timezone: str = os.getenv("TIMEZONE", "Asia/Kolkata")
+    # Firebase service-account key (JSON file) for push notifications; push is off when the file is missing.
+    # On Render, upload it as a Secret File and point this at /etc/secrets/<name>.
+    firebase_service_account_file: str = os.getenv("FIREBASE_SERVICE_ACCOUNT_FILE", "firebase-service-account.json")
 
 
 settings = Settings()

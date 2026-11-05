@@ -1,5 +1,7 @@
 <manifest xmlns:android="http://schemas.android.com/apk/res/android">
     <uses-permission android:name="android.permission.INTERNET"/>
+    <!-- Push notifications (Android 13+ asks the user on first launch). -->
+    <uses-permission android:name="android.permission.POST_NOTIFICATIONS"/>
     <!-- Release builds use HTTPS only (the hosted API). Plain HTTP to a laptop backend is
          allowed in debug builds: see src/debug/AndroidManifest.xml. -->
     <application

@@ -1,6 +1,6 @@
 from datetime import timedelta
 
-from fastapi import APIRouter, Depends, HTTPException
+from fastapi import APIRouter, BackgroundTasks, Depends, HTTPException
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
@@ -8,7 +8,7 @@ from ..config import settings
 from ..db import get_db
 from ..models import ARRIVED, CANCELLED, CONFIRMED, PENDING, Booking, Charger, ChargingSession, User, Vehicle
 from ..schemas import BookingAction, BookingCreate, TransferRequest
-from ..services import plug
+from ..services import plug, push
 from ..services.chargers import alternatives_for, is_online, slot_free
 
 router = APIRouter(prefix="/bookings", tags=["bookings"])
@@ -40,7 +40,7 @@ def _get(db: Session, booking_id: int) -> Booking:
 
 
 @router.post("", status_code=201)
-def create_booking(body: BookingCreate, db: Session = Depends(get_db)):
+def create_booking(body: BookingCreate, background: BackgroundTasks, db: Session = Depends(get_db)):
     charger = db.get(Charger, body.charger_id)
     if charger is None or db.get(User, body.driver_id) is None:
         raise HTTPException(404, "Charger or driver not found")
@@ -55,6 +55,14 @@ def create_booking(body: BookingCreate, db: Session = Depends(get_db)):
     charger.total_bookings += 1
     db.add(booking)
     db.commit()
+
+    driver = db.get(User, booking.driver_id).name
+    when = push.slot(booking.start_time, booking.end_time)
+    if booking.status == PENDING:
+        title, text = "New booking request", f"{driver} wants {charger.name}, {when}. Open Voltra to accept."
+    else:
+        title, text = "New booking", f"{driver} booked {charger.name}, {when}."
+    background.add_task(push.notify, charger.host_id, title, text, type="booking", booking_id=str(booking.id))
     return booking_view(db, booking)
 
 
@@ -74,7 +82,7 @@ def get_booking(booking_id: int, db: Session = Depends(get_db)):
 
 
 @router.patch("/{booking_id}")
-def update_booking(booking_id: int, body: BookingAction, db: Session = Depends(get_db)):
+def update_booking(booking_id: int, body: BookingAction, background: BackgroundTasks, db: Session = Depends(get_db)):
     booking = _get(db, booking_id)
     charger = db.get(Charger, booking.charger_id)
     is_host = body.actor_id == charger.host_id
@@ -97,6 +105,24 @@ def update_booking(booking_id: int, body: BookingAction, db: Session = Depends(g
             raise HTTPException(409, "Only the driver can mark a confirmed booking as arrived")
         booking.status = ARRIVED
     db.commit()
+
+    driver = db.get(User, booking.driver_id).name
+    when = push.slot(booking.start_time, booking.end_time)
+    tag = {"type": "booking", "booking_id": str(booking.id)}
+    if body.action == "accept":
+        background.add_task(
+            push.notify, booking.driver_id, "Booking confirmed", f"{charger.name} accepted {when}.", **tag
+        )
+    elif body.action == "decline":
+        text = f"{charger.name} can't take {when}. Find me a charge shows other chargers nearby."
+        background.add_task(push.notify, booking.driver_id, "Booking declined", text, **tag)
+    elif body.action == "cancel" and is_host:
+        text = f"{charger.name} cancelled {when}. Find me a charge shows other chargers nearby."
+        background.add_task(push.notify, booking.driver_id, "Booking cancelled by host", text, **tag)
+    elif body.action == "cancel":
+        background.add_task(push.notify, charger.host_id, "Booking cancelled", f"{driver} cancelled {when}.", **tag)
+    elif body.action == "arrive":
+        background.add_task(push.notify, charger.host_id, "Driver arrived", f"{driver} is at {charger.name}.", **tag)
     return booking_view(db, booking)
 
 
@@ -117,7 +143,9 @@ def booking_health(booking_id: int, db: Session = Depends(get_db)):
 
 
 @router.post("/{booking_id}/transfer", status_code=201)
-def transfer_booking(booking_id: int, body: TransferRequest, db: Session = Depends(get_db)):
+def transfer_booking(
+    booking_id: int, body: TransferRequest, background: BackgroundTasks, db: Session = Depends(get_db)
+):
     """ChargeSure: move the booking to another charger and add the platform-funded credit."""
     old = _get(db, booking_id)
     if old.status not in (PENDING, CONFIRMED, ARRIVED):
@@ -147,4 +175,8 @@ def transfer_booking(booking_id: int, body: TransferRequest, db: Session = Depen
     target.total_bookings += 1
     db.add(new)
     db.commit()
+
+    driver = db.get(User, new.driver_id).name
+    text = f"ChargeSure moved {driver} to {target.name}, {push.slot(start, end)}: their first charger went offline."
+    background.add_task(push.notify, target.host_id, "New booking", text, type="booking", booking_id=str(new.id))
     return booking_view(db, new)

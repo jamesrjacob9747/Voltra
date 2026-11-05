@@ -1,4 +1,4 @@
-from fastapi import APIRouter, Depends, HTTPException
+from fastapi import APIRouter, BackgroundTasks, Depends, HTTPException
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
@@ -6,7 +6,7 @@ from ..config import settings
 from ..db import get_db
 from ..models import ARRIVED, CHARGING, COMPLETED, CONFIRMED, Booking, Charger, ChargingSession, Payment
 from ..schemas import SessionStart
-from ..services import energy, plug
+from ..services import energy, plug, push
 from ..services.billing import compute_bill, metered_kwh
 from ..services.chargers import alternatives_for, booking_vehicle, is_online
 from ..services.pricing import price_at
@@ -106,7 +106,7 @@ def get_live(session_id: int, db: Session = Depends(get_db)):
 
 
 @router.post("/{session_id}/stop")
-def stop_session(session_id: int, db: Session = Depends(get_db)):
+def stop_session(session_id: int, background: BackgroundTasks, db: Session = Depends(get_db)):
     session = _session(db, session_id)
     if session.meter_end_kwh is not None:
         raise HTTPException(409, "Session already stopped")
@@ -140,6 +140,13 @@ def stop_session(session_id: int, db: Session = Depends(get_db)):
     payment.host_share_paise = bill.host_share_paise
     payment.credit_paise = min(booking.credit_paise, bill.total_paise)
     db.commit()
+
+    payable = bill.total_paise - payment.credit_paise
+    due = f"{push.rupees(payable)} to pay." if payable > 0 else "Covered by your ChargeSure credit."
+    text = f"{kwh:.2f} kWh at {charger.name}. {due}"
+    background.add_task(
+        push.notify, booking.driver_id, "Charging complete", text, type="bill", booking_id=str(booking.id)
+    )
 
     return {
         **live_view(db, session),

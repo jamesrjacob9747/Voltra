@@ -272,6 +272,10 @@ class VoltraApi {
     return list.map((j) => Charger.fromJson(j as Map<String, dynamic>)).toList();
   }
 
+  /// Push notifications: this phone's Firebase token for [userId]. Safe to send on every login.
+  Future<void> registerDeviceToken(int userId, String token) =>
+      _send('POST', '/users/$userId/device-token', body: {'token': token});
+
   Future<Impact> impact() async => Impact.fromJson(await _get('/impact') as Map<String, dynamic>);
 
   // Stage demo controls.
