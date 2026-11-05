@@ -6,14 +6,15 @@ class AppUser {
   final int id;
   final String name;
   final String role; // driver | host | both
+  final String? phone; // e.g. +919800000010; prefills Razorpay Checkout
 
-  const AppUser({required this.id, required this.name, required this.role});
+  const AppUser({required this.id, required this.name, required this.role, this.phone});
 
   bool get canDrive => role == 'driver' || role == 'both';
   bool get canHost => role == 'host' || role == 'both';
 
   factory AppUser.fromJson(Map<String, dynamic> j) =>
-      AppUser(id: j['id'] as int, name: j['name'] as String, role: j['role'] as String);
+      AppUser(id: j['id'] as int, name: j['name'] as String, role: j['role'] as String, phone: j['phone'] as String?);
 }
 
 class Confidence {
@@ -398,6 +399,26 @@ class Bill {
     platformFeePaise: j['platform_fee_paise'] as int,
     hostSharePaise: j['host_share_paise'] as int,
     creditPaise: j['credit_paise'] as int,
+    payablePaise: j['payable_paise'] as int,
+  );
+}
+
+/// The server's answer to "create an order": "razorpay" with an order to open in Razorpay
+/// Checkout, or "demo" when the server has no Razorpay keys (or there is nothing to pay).
+class PaymentOrder {
+  final String mode;
+  final String? keyId;
+  final String? orderId;
+  final int payablePaise;
+
+  const PaymentOrder({required this.mode, this.keyId, this.orderId, required this.payablePaise});
+
+  bool get isRazorpay => mode == 'razorpay' && keyId != null && orderId != null;
+
+  factory PaymentOrder.fromJson(Map<String, dynamic> j) => PaymentOrder(
+    mode: j['mode'] as String,
+    keyId: j['key_id'] as String?,
+    orderId: j['razorpay_order_id'] as String?,
     payablePaise: j['payable_paise'] as int,
   );
 }

@@ -197,9 +197,28 @@ class VoltraApi {
     await _send('POST', '/bookings/$bookingId/transfer', body: {'to_charger_id': toChargerId}) as Map<String, dynamic>,
   );
 
-  /// Returns "demo" (no Razorpay keys on the server, or nothing to pay) or "razorpay".
-  Future<String> createOrder(int bookingId) async =>
-      (await _send('POST', '/payments/$bookingId/order') as Map<String, dynamic>)['mode'] as String;
+  /// A Razorpay test order, or mode "demo" when the server has no Razorpay keys or nothing is due.
+  Future<PaymentOrder> createOrder(int bookingId) async =>
+      PaymentOrder.fromJson(await _send('POST', '/payments/$bookingId/order') as Map<String, dynamic>);
+
+  /// The server checks Razorpay's signature with the key secret, then marks the bill paid.
+  Future<Bill> verifyPayment({
+    required int bookingId,
+    required String orderId,
+    required String paymentId,
+    required String signature,
+  }) async => Bill.fromJson(
+    await _send(
+      'POST',
+      '/payments/verify',
+      body: {
+        'booking_id': bookingId,
+        'razorpay_order_id': orderId,
+        'razorpay_payment_id': paymentId,
+        'razorpay_signature': signature,
+      },
+    ) as Map<String, dynamic>,
+  );
 
   Future<Bill> demoPay(int bookingId) async =>
       Bill.fromJson(await _send('POST', '/payments/$bookingId/demo-pay', admin: true) as Map<String, dynamic>);

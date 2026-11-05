@@ -1,7 +1,12 @@
+import hashlib
+import hmac
 from dataclasses import replace
 from datetime import datetime
 
-from app.routers import admin
+import httpx
+import pytest
+
+from app.routers import admin, payments
 
 MANOJ_LAT, MANOJ_LNG = 12.9352, 77.6245
 ARJUN = 5  # seeded driver
@@ -182,6 +187,85 @@ def test_full_journey_bills_from_the_meter(client, clock):
 
     review = client.post("/reviews", json={"booking_id": booking["id"], "reviewer_id": ARJUN, "rating": 5})
     assert review.status_code == 201
+
+
+TEST_KEY_ID, TEST_SECRET = "rzp_test_fake", "fake-secret"
+
+
+def _billed_booking(client, clock) -> int:
+    booking = _book(client, charger_id=1)
+    start = client.post("/sessions/start", json={"booking_id": booking["id"], "qr": "voltra://charger/CHG001"})
+    clock.advance(minutes=148)
+    client.post(f"/sessions/{start.json()['session_id']}/stop")
+    return booking["id"]
+
+
+@pytest.fixture
+def razorpay(monkeypatch):
+    """Razorpay test keys on the server, and a fake Orders API that records what it was sent."""
+    monkeypatch.setattr(
+        payments, "settings", replace(payments.settings, razorpay_key_id=TEST_KEY_ID, razorpay_key_secret=TEST_SECRET)
+    )
+    calls = []
+
+    def fake_post(url, *, auth, json, timeout):
+        calls.append({"url": url, "auth": auth, "json": json})
+        return httpx.Response(
+            200, json={"id": f"order_fake{len(calls)}", "amount": json["amount"], "status": "created"}
+        )
+
+    monkeypatch.setattr(payments.httpx, "post", fake_post)
+    return calls
+
+
+def _sign(order_id: str, payment_id: str, secret: str = TEST_SECRET) -> str:
+    return hmac.new(secret.encode(), f"{order_id}|{payment_id}".encode(), hashlib.sha256).hexdigest()
+
+
+def test_razorpay_order_and_verified_payment(client, clock, razorpay):
+    booking_id = _billed_booking(client, clock)
+
+    order = client.post(f"/payments/{booking_id}/order").json()
+    assert order["mode"] == "razorpay" and order["key_id"] == TEST_KEY_ID
+    assert order["razorpay_order_id"] == "order_fake1" and order["payable_paise"] == 2220
+    assert razorpay[0]["json"]["amount"] == 2220 and razorpay[0]["json"]["currency"] == "INR"
+    assert razorpay[0]["auth"] == (TEST_KEY_ID, TEST_SECRET)
+
+    # Closing the checkout and tapping Pay again reuses the order.
+    assert client.post(f"/payments/{booking_id}/order").json()["razorpay_order_id"] == "order_fake1"
+    assert len(razorpay) == 1
+
+    body = {"booking_id": booking_id, "razorpay_order_id": "order_fake1", "razorpay_payment_id": "pay_fake1"}
+    forged = client.post(
+        "/payments/verify", json={**body, "razorpay_signature": _sign("order_fake1", "pay_fake1", "wrong")}
+    )
+    assert forged.status_code == 400
+    assert client.get(f"/payments/{booking_id}").json()["status"] == "PENDING"
+
+    good = {**body, "razorpay_signature": _sign("order_fake1", "pay_fake1")}
+    assert client.post("/payments/verify", json=good).json()["status"] == "PAID"
+    assert client.post("/payments/verify", json=good).json()["status"] == "PAID"  # a retry is harmless
+    assert client.get(f"/host/{MANOJ}/dashboard").json()["today"]["earnings_paise"] == 1887
+    assert client.post(f"/payments/{booking_id}/order").status_code == 409
+
+
+def test_razorpay_verify_rejects_another_bookings_order(client, clock, razorpay):
+    booking_id = _billed_booking(client, clock)
+    client.post(f"/payments/{booking_id}/order")
+    body = {"booking_id": booking_id, "razorpay_order_id": "order_other", "razorpay_payment_id": "pay_x"}
+    resp = client.post("/payments/verify", json={**body, "razorpay_signature": _sign("order_other", "pay_x")})
+    assert resp.status_code == 409
+
+
+def test_razorpay_outage_is_reported_not_crashed(client, clock, razorpay, monkeypatch):
+    booking_id = _billed_booking(client, clock)
+
+    def down(*args, **kwargs):
+        raise httpx.ConnectError("no route")
+
+    monkeypatch.setattr(payments.httpx, "post", down)
+    resp = client.post(f"/payments/{booking_id}/order")
+    assert resp.status_code == 502 and "Razorpay" in resp.json()["detail"]
 
 
 def test_double_booking_is_rejected(client):
