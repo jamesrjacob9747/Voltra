@@ -38,6 +38,7 @@ class VoltraApi {
     Map<String, String>? query,
     Object? body,
     bool admin = false,
+    bool isRetry = false,
   }) async {
     final uri = _base.replace(path: path, queryParameters: query);
     final request = http.Request(method, uri);
@@ -47,7 +48,15 @@ class VoltraApi {
       request.body = jsonEncode(body);
     }
     try {
-      final resp = await http.Response.fromStream(await _client.send(request).timeout(_timeout));
+      final http.Response resp;
+      try {
+        resp = await http.Response.fromStream(await _client.send(request).timeout(_timeout));
+      } on http.ClientException {
+        // Usually a kept-alive connection the server had already closed. A GET is safe to send
+        // again; anything else is not (it could create a second booking), so it is reported.
+        if (method == 'GET' && !isRetry) return await _send(method, path, query: query, admin: admin, isRetry: true);
+        throw ApiException("Lost the connection to the Voltra server. Please try again.");
+      }
       final decoded = resp.body.isEmpty ? null : jsonDecode(utf8.decode(resp.bodyBytes));
       if (resp.statusCode >= 400) {
         final detail = decoded is Map ? decoded['detail'] : null;
@@ -63,6 +72,8 @@ class VoltraApi {
       return decoded;
     } on SocketException {
       throw ApiException("Can't reach the Voltra server at $baseUrl");
+    } on HandshakeException {
+      throw ApiException("Couldn't open a secure connection to $baseUrl");
     } on TimeoutException {
       throw ApiException('The Voltra server at $baseUrl took too long to answer');
     }
@@ -241,6 +252,8 @@ class VoltraApi {
     final list = await _get('/host/$hostId/chargers') as List<dynamic>;
     return list.map((j) => Charger.fromJson(j as Map<String, dynamic>)).toList();
   }
+
+  Future<Impact> impact() async => Impact.fromJson(await _get('/impact') as Map<String, dynamic>);
 
   // Stage demo controls.
   Future<void> setPlugOnline(String deviceId, bool online) =>

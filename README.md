@@ -1,5 +1,9 @@
 # Voltra
 
+[![CI](https://github.com/jamesrjacob9747/Voltra/actions/workflows/ci.yml/badge.svg)](https://github.com/jamesrjacob9747/Voltra/actions/workflows/ci.yml)
+
+**Live API:** https://voltra-nrj1.onrender.com ([docs](https://voltra-nrj1.onrender.com/docs)) · Render + Supabase, Singapore
+
 Peer-to-peer EV charging for India: find a verified charger nearby, book it, charge, pay by UPI. Hosts earn from chargers and 15A sockets they already own.
 
 Hackathon MVP. The core flow is **ChargeMatch → book → scan QR → live metered charge → bill → pay**, plus **ChargeSure**: if a charger goes offline, the booking moves to a nearby one with a ₹20 credit.

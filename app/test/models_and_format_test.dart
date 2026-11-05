@@ -69,6 +69,24 @@ void main() {
     expect(b.platformFeePaise + b.hostSharePaise, b.totalPaise);
   });
 
+  test('Impact parses the /impact payload', () {
+    final i = Impact.fromJson({
+      'chargers': 8,
+      'verified_chargers': 8,
+      'hosts': 4,
+      'sessions_completed': 391,
+      'kwh_shared': 703.8,
+      'host_earnings_paise': 726000,
+      'chargesure_rescues': 0,
+      'petrol_litres_avoided': 422.3,
+      'co2_kg_avoided': 468.7,
+      'estimated_sessions': 391,
+      'factors': {'kwh_per_session_estimate': 1.8, 'km_per_kwh': 30, 'grid_co2_kg_per_kwh': 0.72},
+    });
+    expect(i.kwhShared, 703.8);
+    expect(i.factors['km_per_kwh'], 30.0); // ints in JSON become doubles
+  });
+
   test('Booking and MatchEstimate parse server payloads', () {
     final b = Booking.fromJson({
       'id': 3,
@@ -95,6 +113,25 @@ void main() {
       'est_cost_paise': 2200,
     });
     expect(e.finishAt.difference(e.arriveAt).inMinutes, 147);
+    expect(e.cheaperLater, isNull); // older servers omit the key
+
+    final evening = MatchEstimate.fromJson({
+      'energy_kwh': 1.83,
+      'power_kw': 0.75,
+      'charge_minutes': 147,
+      'arrive_at': '2026-11-09T19:05',
+      'finish_at': '2026-11-09T21:31',
+      'est_cost_paise': 2640,
+      'cheaper_later': {
+        'start_at': '2026-11-10T00:00',
+        'finish_at': '2026-11-10T02:26',
+        'price_per_kwh_paise': 960,
+        'est_cost_paise': 1760,
+        'saving_paise': 880,
+      },
+    });
+    expect(evening.cheaperLater!.startAt, DateTime(2026, 11, 10));
+    expect(evening.cheaperLater!.savingPaise, evening.estCostPaise - evening.cheaperLater!.estCostPaise);
   });
 
   test('Charger parses the /chargers payload', () {

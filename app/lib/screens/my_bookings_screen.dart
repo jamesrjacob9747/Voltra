@@ -22,7 +22,9 @@ class _MyBookingsScreenState extends State<MyBookingsScreen> {
 
   Future<void> _refresh() async {
     final next = api.driverBookings(widget.user.id);
-    setState(() => _bookings = next);
+    setState(() {
+      _bookings = next;
+    });
     await next;
   }
 

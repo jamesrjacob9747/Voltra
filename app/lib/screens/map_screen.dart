@@ -38,7 +38,9 @@ class _MapScreenState extends State<MapScreen> {
 
   Future<void> _refresh() async {
     final next = _load();
-    setState(() => _chargers = next);
+    setState(() {
+      _chargers = next;
+    });
     await next;
   }
 

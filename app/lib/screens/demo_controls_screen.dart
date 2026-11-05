@@ -27,7 +27,9 @@ class _DemoControlsScreenState extends State<DemoControlsScreen> {
     try {
       await api.setPlugOnline(c.deviceId, online);
       if (!mounted) return;
-      setState(() => _chargers = _load());
+      setState(() {
+        _chargers = _load();
+      });
       await _chargers;
     } on ApiException catch (e) {
       if (mounted) showSnack(context, e.message);
@@ -57,7 +59,9 @@ class _DemoControlsScreenState extends State<DemoControlsScreen> {
     }
     if (!mounted) return;
     showSnack(context, 'Demo data reset');
-    setState(() => _chargers = _load());
+    setState(() {
+      _chargers = _load();
+    });
   }
 
   @override
@@ -68,7 +72,12 @@ class _DemoControlsScreenState extends State<DemoControlsScreen> {
         future: _chargers,
         builder: (context, snap) {
           if (snap.hasError) {
-            return ErrorView(message: '${snap.error}', onRetry: () => setState(() => _chargers = _load()));
+            return ErrorView(
+              message: '${snap.error}',
+              onRetry: () => setState(() {
+                _chargers = _load();
+              }),
+            );
           }
           if (!snap.hasData) return const Center(child: CircularProgressIndicator());
           return ListView(
