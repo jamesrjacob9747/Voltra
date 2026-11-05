@@ -1,4 +1,7 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
+import 'package:razorpay_flutter/razorpay_flutter.dart';
 
 import '../api.dart';
 import '../format.dart';
@@ -50,15 +53,28 @@ class _BillScreenState extends State<BillScreen> {
     }
   }
 
+  @override
+  void dispose() {
+    _razorpay?.clear();
+    super.dispose();
+  }
+
   Future<void> _pay(Bill b) async {
     setState(() => _paying = true);
     try {
       // The server creates the order; without Razorpay keys it answers "demo".
-      final mode = await api.createOrder(b.bookingId);
+      final order = await api.createOrder(b.bookingId);
       if (!mounted) return;
-      final approved = b.payablePaise == 0 || await _showUpiSheet(b, mode);
-      if (!approved) return;
-      final paid = await api.demoPay(b.bookingId);
+      final Bill paid;
+      if (order.isRazorpay) {
+        final success = await _razorpayCheckout(order);
+        if (success == null || !mounted) return;
+        paid = await _verify(b.bookingId, success);
+      } else {
+        final approved = b.payablePaise == 0 || await _showUpiSheet(b);
+        if (!approved) return;
+        paid = await api.demoPay(b.bookingId);
+      }
       if (mounted) setState(() => _bill = paid);
     } on ApiException catch (e) {
       if (mounted) showSnack(context, e.message);
@@ -67,8 +83,67 @@ class _BillScreenState extends State<BillScreen> {
     }
   }
 
-  /// Stand-in for the UPI app hand-off (UPI Intent) until Razorpay test keys are configured.
-  Future<bool> _showUpiSheet(Bill b, String mode) async {
+  Razorpay? _razorpay;
+
+  /// Opens Razorpay Checkout (UPI, cards, netbanking; test mode with test keys).
+  /// Completes with the signed result, or null when the driver cancels or the payment fails.
+  Future<PaymentSuccessResponse?> _razorpayCheckout(PaymentOrder order) {
+    final done = Completer<PaymentSuccessResponse?>();
+    final rp = _razorpay ??= Razorpay();
+    rp.clear();
+    rp.on(Razorpay.EVENT_PAYMENT_SUCCESS, (PaymentSuccessResponse r) {
+      if (!done.isCompleted) done.complete(r);
+    });
+    rp.on(Razorpay.EVENT_PAYMENT_ERROR, (PaymentFailureResponse r) {
+      if (done.isCompleted) return;
+      if (mounted) {
+        showSnack(
+          context,
+          r.code == Razorpay.PAYMENT_CANCELLED
+              ? 'Payment cancelled'
+              : 'Payment failed: ${r.message ?? 'unknown error'}',
+        );
+      }
+      done.complete(null);
+    });
+    rp.on(Razorpay.EVENT_EXTERNAL_WALLET, (ExternalWalletResponse r) {
+      if (done.isCompleted) return;
+      if (mounted) {
+        showSnack(context, '${r.walletName ?? 'That wallet'} isn’t supported yet. Please pay with UPI or a card.');
+      }
+      done.complete(null);
+    });
+    rp.open({
+      'key': order.keyId,
+      'order_id': order.orderId,
+      'amount': order.payablePaise,
+      'currency': 'INR',
+      'name': 'Voltra',
+      'description': 'EV charging at ${_session?.chargerName ?? 'a Voltra charger'}',
+      'prefill': {'name': widget.user.name, 'contact': ?widget.user.phone},
+      'theme': {'color': '#0B7A45'},
+    });
+    return done.future;
+  }
+
+  /// The money has moved by now, so a dropped connection is retried once: verifying twice is harmless.
+  Future<Bill> _verify(int bookingId, PaymentSuccessResponse r) async {
+    Future<Bill> send() => api.verifyPayment(
+      bookingId: bookingId,
+      orderId: r.orderId ?? '',
+      paymentId: r.paymentId ?? '',
+      signature: r.signature ?? '',
+    );
+    try {
+      return await send();
+    } on ApiException catch (e) {
+      if (e.message.startsWith('Lost the connection') || e.message.contains('took too long')) return await send();
+      rethrow;
+    }
+  }
+
+  /// Demo mode (no Razorpay keys on the server): stands in for the UPI app hand-off.
+  Future<bool> _showUpiSheet(Bill b) async {
     final ok = await showModalBottomSheet<bool>(
       context: context,
       showDragHandle: true,
@@ -87,11 +162,9 @@ class _BillScreenState extends State<BillScreen> {
                 ],
               ),
               const SizedBox(height: 4),
-              Text(
-                mode == 'demo'
-                    ? 'Demo mode: no money moves. With Razorpay test keys this opens your UPI app.'
-                    : 'Razorpay checkout isn’t wired into the app yet; this marks the test order paid.',
-                style: const TextStyle(color: VoltraColors.muted),
+              const Text(
+                'Demo mode: no money moves. With Razorpay test keys on the server, this opens Razorpay Checkout.',
+                style: TextStyle(color: VoltraColors.muted),
               ),
               const SizedBox(height: 20),
               Center(

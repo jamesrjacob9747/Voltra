@@ -54,19 +54,30 @@ def create_order(booking_id: int, db: Session = Depends(get_db)):
     if payment.status == "PAID":
         raise HTTPException(409, "Already paid")
     payable = payment.total_paise - payment.credit_paise
-    if not settings.razorpay_key_id or payable <= 0:
+    if not settings.razorpay_key_id or not settings.razorpay_key_secret or payable <= 0:
         return {**payment_view(payment), "mode": "demo"}
 
-    resp = httpx.post(
-        RAZORPAY_ORDERS_URL,
-        auth=(settings.razorpay_key_id, settings.razorpay_key_secret),
-        json={"amount": payable, "currency": "INR", "receipt": f"booking_{booking_id}"},
-        timeout=10,
-    )
-    if resp.status_code >= 400:
-        raise HTTPException(502, "Razorpay order failed; use the demo payment instead")
-    payment.razorpay_order_id = resp.json()["id"]
-    db.commit()
+    # A driver who closes the checkout and taps Pay again gets the same order back: the bill is
+    # final once the session stops, and Razorpay lets an unpaid order be retried.
+    if payment.razorpay_order_id is None:
+        try:
+            resp = httpx.post(
+                RAZORPAY_ORDERS_URL,
+                auth=(settings.razorpay_key_id, settings.razorpay_key_secret),
+                json={
+                    "amount": payable,
+                    "currency": "INR",
+                    "receipt": f"voltra_booking_{booking_id}",
+                    "notes": {"booking_id": str(booking_id)},
+                },
+                timeout=10,
+            )
+        except httpx.HTTPError:
+            raise HTTPException(502, "Couldn't reach Razorpay. Please try again.") from None
+        if resp.status_code >= 400:
+            raise HTTPException(502, "Razorpay couldn't create the order. Please try again.")
+        payment.razorpay_order_id = resp.json()["id"]
+        db.commit()
     return {**payment_view(payment), "mode": "razorpay", "key_id": settings.razorpay_key_id}
 
 
@@ -75,7 +86,7 @@ def verify_payment(body: PaymentVerify, db: Session = Depends(get_db)):
     if not settings.razorpay_key_secret:
         raise HTTPException(409, "Razorpay is not configured on this server")
     payment = _payment(db, body.booking_id)
-    if body.razorpay_order_id != payment.razorpay_order_id:
+    if payment.razorpay_order_id is None or body.razorpay_order_id != payment.razorpay_order_id:
         raise HTTPException(409, "Order does not match this booking")
     expected = hmac.new(
         settings.razorpay_key_secret.encode(),
@@ -84,6 +95,8 @@ def verify_payment(body: PaymentVerify, db: Session = Depends(get_db)):
     ).hexdigest()
     if not hmac.compare_digest(expected, body.razorpay_signature):
         raise HTTPException(400, "Payment signature is invalid")
+    if payment.status == "PAID":  # the app retried after a dropped connection
+        return payment_view(payment)
     return _mark_paid(db, payment)
 
 

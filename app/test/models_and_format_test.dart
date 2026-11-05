@@ -3,6 +3,22 @@ import 'package:voltra_app/format.dart';
 import 'package:voltra_app/models.dart';
 
 void main() {
+  test('PaymentOrder tells Razorpay orders from demo mode', () {
+    final rzp = PaymentOrder.fromJson({
+      'mode': 'razorpay',
+      'key_id': 'rzp_test_x',
+      'razorpay_order_id': 'order_1',
+      'payable_paise': 2220,
+    });
+    expect(rzp.isRazorpay, isTrue);
+    expect(rzp.orderId, 'order_1');
+    expect(rzp.payablePaise, 2220);
+
+    final demo = PaymentOrder.fromJson({'mode': 'demo', 'razorpay_order_id': null, 'payable_paise': 2220});
+    expect(demo.isRazorpay, isFalse);
+    expect(demo.keyId, isNull);
+  });
+
   test('rupees formats paise like the backend bill', () {
     expect(rupees(2220), '₹22.20');
     expect(rupees(1200), '₹12');
