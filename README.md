@@ -4,6 +4,8 @@
 
 **Live API:** https://voltra-nrj1.onrender.com ([docs](https://voltra-nrj1.onrender.com/docs)) · Render + Supabase, Singapore
 
+**Android app:** download `Voltra.apk` from the [latest release](https://github.com/jamesrjacob9747/Voltra/releases/latest). It uses the live API, so no laptop is needed. Payments run in Razorpay test mode.
+
 Peer-to-peer EV charging for India: find a verified charger nearby, book it, charge, pay by UPI. Hosts earn from chargers and 15A sockets they already own.
 
 Hackathon MVP. The core flow is **ChargeMatch → book → scan QR → live metered charge → bill → pay**, plus **ChargeSure**: if a charger goes offline, the booking moves to a nearby one with a ₹20 credit.
