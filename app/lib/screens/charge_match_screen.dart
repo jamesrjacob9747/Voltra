@@ -26,6 +26,7 @@ class _ChargeMatchScreenState extends State<ChargeMatchScreen> {
   double _target = 80;
   TimeOfDay? _readyBy;
   double _radiusKm = 2;
+  Duration _clockOffset = Duration.zero; // server time minus phone time; ready-by is server-local
   String? _error;
 
   bool _searching = false;
@@ -48,6 +49,7 @@ class _ChargeMatchScreenState extends State<ChargeMatchScreen> {
       setState(() {
         _vehicles = vehicles;
         _vehicle = vehicles.isEmpty ? null : vehicles.first;
+        _clockOffset = now.difference(DateTime.now());
         final ready = now.add(const Duration(hours: 3));
         _readyBy = TimeOfDay(hour: ready.hour, minute: ready.minute - ready.minute % 15);
       });
@@ -61,11 +63,17 @@ class _ChargeMatchScreenState extends State<ChargeMatchScreen> {
     return '${t.hour.toString().padLeft(2, '0')}:${t.minute.toString().padLeft(2, '0')}';
   }
 
-  String get _readyByLabel => clock(DateTime(2000, 1, 1, _readyBy!.hour, _readyBy!.minute));
+  String get _readyByLabel => readyByLabel(_readyBy!.hour, _readyBy!.minute, DateTime.now().add(_clockOffset));
+
+  /// Any change to the need makes the shown results stale, so they are cleared until the next search.
+  void _changeNeed(VoidCallback change) => setState(() {
+    change();
+    _results = null;
+  });
 
   Future<void> _pickReadyBy() async {
     final picked = await showTimePicker(context: context, initialTime: _readyBy!);
-    if (picked != null) setState(() => _readyBy = picked);
+    if (picked != null) _changeNeed(() => _readyBy = picked);
   }
 
   Future<void> _search() async {
@@ -149,7 +157,7 @@ class _ChargeMatchScreenState extends State<ChargeMatchScreen> {
                 initialValue: _vehicle,
                 decoration: const InputDecoration(labelText: 'Vehicle'),
                 items: [for (final v in _vehicles!) DropdownMenuItem(value: v, child: Text(v.model))],
-                onChanged: (v) => setState(() => _vehicle = v),
+                onChanged: (v) => _changeNeed(() => _vehicle = v),
               )
             else
               Row(
@@ -163,12 +171,12 @@ class _ChargeMatchScreenState extends State<ChargeMatchScreen> {
               ),
             const SizedBox(height: 16),
             _sliderRow('Battery now', _current, (v) {
-              setState(() {
+              _changeNeed(() {
                 _current = v;
                 if (_target <= v) _target = (v + 5).clamp(0, 100);
               });
             }),
-            _sliderRow('Charge to', _target, (v) => setState(() => _target = v < _current + 5 ? _current + 5 : v)),
+            _sliderRow('Charge to', _target, (v) => _changeNeed(() => _target = v < _current + 5 ? _current + 5 : v)),
             const SizedBox(height: 8),
             Row(
               children: [
@@ -195,7 +203,7 @@ class _ChargeMatchScreenState extends State<ChargeMatchScreen> {
                     ButtonSegment(value: 5, label: Text('5 km')),
                   ],
                   selected: {_radiusKm},
-                  onSelectionChanged: (s) => setState(() => _radiusKm = s.first),
+                  onSelectionChanged: (s) => _changeNeed(() => _radiusKm = s.first),
                 ),
               ],
             ),

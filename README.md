@@ -37,7 +37,7 @@ uvicorn app.main:app --host 0.0.0.0 --port 8000
 - A phone on the same Wi-Fi reaches it at `http://<laptop LAN IP>:8000`.
 - SQLite by default. For Supabase, set `DATABASE_URL` in `.env` to the **Session pooler** URI (see `.env.example`). The laptop is far from Supabase's servers, so requests are slower locally than when hosted. Comment the line out to go back to SQLite.
 - On Postgres, startup also switches on row level security for every table, which closes Supabase's public REST API to these tables. The server's own connection keeps full access.
-- `DEMO_ENDPOINTS=false` turns off the demo controls (`/admin/*`, demo payment). With `ADMIN_TOKEN` set, they require that value in an `X-Admin-Token` header.
+- The demo controls (`/admin/*`, demo payment) need no token: anyone using the app can switch chargers or reset the data during the hackathon. `DEMO_ENDPOINTS=false` turns them off.
 
 Tests and lint (dev tools are in `requirements-dev.txt`):
 
@@ -137,11 +137,11 @@ The backend runs on **Render** (free web service) and the database on **Supabase
    | Health Check Path | `/health` |
    | Instance Type | Free |
 
-3. **Environment variables** on Render: `DATABASE_URL`, `ADMIN_TOKEN` (long random value), `TIMEZONE=Asia/Kolkata`, `DEMO_SPEED=30`, `DEMO_ENDPOINTS=true`, `PYTHON_VERSION=3.12.8`. Secrets live only in Render's dashboard and your local `backend/.env`, never in git.
+3. **Environment variables** on Render: `DATABASE_URL`, `TIMEZONE=Asia/Kolkata`, `DEMO_SPEED=30`, `DEMO_ENDPOINTS=true`, `PYTHON_VERSION=3.12.8`. Secrets live only in Render's dashboard and your local `backend/.env`, never in git.
 4. **App for the hosted API:**
    ```bash
    cd app
-   flutter build apk --release --split-per-abi --dart-define=API_URL=https://YOUR-SERVICE.onrender.com --dart-define=ADMIN_TOKEN=YOUR_TOKEN
+   flutter build apk --release --split-per-abi --dart-define=API_URL=https://voltra-nrj1.onrender.com
    ```
    Install `build/app/outputs/flutter-apk/app-arm64-v8a-release.apk` on the phone.
 

@@ -3,6 +3,16 @@ import 'package:voltra_app/format.dart';
 import 'package:voltra_app/models.dart';
 
 void main() {
+  test('ready-by later today stays today; an earlier time means tomorrow', () {
+    final now = DateTime(2026, 11, 7, 14, 30); // 2:30 PM
+    expect(readyByLabel(17, 0, now), '5:00 PM');
+    expect(readyByOn(17, 0, now), DateTime(2026, 11, 7, 17, 0));
+    expect(readyByLabel(7, 0, now), '7:00 AM (tomorrow)');
+    expect(readyByOn(7, 0, now), DateTime(2026, 11, 8, 7, 0));
+    expect(readyByLabel(14, 30, now), '2:30 PM (tomorrow)'); // "now" itself is already past
+    expect(readyByOn(0, 15, DateTime(2026, 12, 31, 23, 0)), DateTime(2027, 1, 1, 0, 15));
+  });
+
   test('PaymentOrder tells Razorpay orders from demo mode', () {
     final rzp = PaymentOrder.fromJson({
       'mode': 'razorpay',
