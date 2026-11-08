@@ -40,13 +40,11 @@ def test_demo_endpoints_can_be_switched_off(client, monkeypatch):
     assert client.post("/payments/1/demo-pay").status_code == 404
 
 
-def test_admin_token_required_when_set(client, monkeypatch):
-    monkeypatch.setattr(admin, "settings", replace(admin.settings, admin_token="s3cret-token"))
-    url, body = "/admin/plugs/CHG001/online", {"online": True}
-    assert client.post(url, json=body).status_code == 403
-    assert client.post(url, json=body, headers={"X-Admin-Token": "wrong"}).status_code == 403
-    assert client.post(url, json=body, headers={"X-Admin-Token": "s3cret-token"}).status_code == 200
-    assert client.post("/payments/1/demo-pay").status_code == 403  # demo payment is guarded too
+def test_demo_controls_need_no_token(client):
+    # Any app build can drive the stage controls while DEMO_ENDPOINTS is on.
+    assert client.post("/admin/plugs/CHG001/online", json={"online": False}).json()["online"] is False
+    assert client.post("/admin/plugs/CHG001/online", json={"online": True}).json()["online"] is True
+    assert client.post("/admin/reset").json() == {"ok": True}
 
 
 def test_razorpay_verify_refuses_without_keys(client):

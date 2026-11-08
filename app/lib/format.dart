@@ -17,6 +17,20 @@ String clock(DateTime t) {
   return '$h:$m ${t.hour < 12 ? 'AM' : 'PM'}';
 }
 
+/// A ready-by time of day as the server reads it: today if still ahead of [now], else tomorrow.
+/// Mirrors `parse_ready_by` in backend/app/routers/match.py.
+DateTime readyByOn(int hour, int minute, DateTime now) {
+  final today = DateTime(now.year, now.month, now.day, hour, minute);
+  return today.isAfter(now) ? today : today.add(const Duration(days: 1));
+}
+
+/// "7:00 AM", or "7:00 AM (tomorrow)" when that time has already passed today.
+String readyByLabel(int hour, int minute, DateTime now) {
+  final at = readyByOn(hour, minute, now);
+  final tomorrow = at.day != now.day || at.month != now.month || at.year != now.year;
+  return tomorrow ? '${clock(at)} (tomorrow)' : clock(at);
+}
+
 /// "2 h 27 min", "45 min"
 String minutes(int total) {
   if (total < 60) return '$total min';

@@ -37,12 +37,10 @@ class VoltraApi {
     String path, {
     Map<String, String>? query,
     Object? body,
-    bool admin = false,
     bool isRetry = false,
   }) async {
     final uri = _base.replace(path: path, queryParameters: query);
     final request = http.Request(method, uri);
-    if (admin && adminToken.isNotEmpty) request.headers['X-Admin-Token'] = adminToken;
     if (body != null) {
       request.headers['Content-Type'] = 'application/json';
       request.body = jsonEncode(body);
@@ -54,7 +52,7 @@ class VoltraApi {
       } on http.ClientException {
         // Usually a kept-alive connection the server had already closed. A GET is safe to send
         // again; anything else is not (it could create a second booking), so it is reported.
-        if (method == 'GET' && !isRetry) return await _send(method, path, query: query, admin: admin, isRetry: true);
+        if (method == 'GET' && !isRetry) return await _send(method, path, query: query, isRetry: true);
         throw ApiException("Lost the connection to the Voltra server. Please try again.");
       }
       final decoded = resp.body.isEmpty ? null : jsonDecode(utf8.decode(resp.bodyBytes));
@@ -221,7 +219,7 @@ class VoltraApi {
   );
 
   Future<Bill> demoPay(int bookingId) async =>
-      Bill.fromJson(await _send('POST', '/payments/$bookingId/demo-pay', admin: true) as Map<String, dynamic>);
+      Bill.fromJson(await _send('POST', '/payments/$bookingId/demo-pay') as Map<String, dynamic>);
 
   Future<void> submitReview({
     required int bookingId,
@@ -280,9 +278,9 @@ class VoltraApi {
 
   // Stage demo controls.
   Future<void> setPlugOnline(String deviceId, bool online) =>
-      _send('POST', '/admin/plugs/$deviceId/online', body: {'online': online}, admin: true);
+      _send('POST', '/admin/plugs/$deviceId/online', body: {'online': online});
 
-  Future<void> resetDemo() => _send('POST', '/admin/reset', admin: true);
+  Future<void> resetDemo() => _send('POST', '/admin/reset');
 }
 
 const qrPrefix = 'voltra://charger/';

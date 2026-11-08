@@ -30,8 +30,6 @@ class Settings:
     razorpay_key_secret: str = os.getenv("RAZORPAY_KEY_SECRET", "")
     # Unauthenticated stage controls (/admin/*, demo payment). Turn off outside the demo.
     demo_endpoints: bool = os.getenv("DEMO_ENDPOINTS", "true").lower() == "true"
-    # When set, those stage controls also need this value in the X-Admin-Token header (hosted servers).
-    admin_token: str = os.getenv("ADMIN_TOKEN", "")
     # Bookings, "today" and peak pricing are wall-clock times in this zone, wherever the server runs.
     timezone: str = os.getenv("TIMEZONE", "Asia/Kolkata")
     # Firebase service-account key (JSON file) for push notifications; push is off when the file is missing.

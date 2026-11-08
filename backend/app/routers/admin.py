@@ -1,8 +1,6 @@
 """Demo controls. Used on stage to trigger ChargeSure and to reset between rehearsals."""
 
-import hmac
-
-from fastapi import APIRouter, BackgroundTasks, Depends, Header, HTTPException
+from fastapi import APIRouter, BackgroundTasks, Depends, HTTPException
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
@@ -14,13 +12,11 @@ from ..seed import reset_and_seed
 from ..services import plug, push
 
 
-def require_demo_endpoints(x_admin_token: str | None = Header(default=None)) -> None:
-    """Stage controls: they exist only while DEMO_ENDPOINTS=true, and when ADMIN_TOKEN is set
-    (any hosted server) the caller must also send it in the X-Admin-Token header."""
+def require_demo_endpoints() -> None:
+    """Stage controls (charger on/off, reset, demo payment) exist only while DEMO_ENDPOINTS=true.
+    They are open to anyone using the app during the hackathon; set DEMO_ENDPOINTS=false to remove them."""
     if not settings.demo_endpoints:
         raise HTTPException(404, "Not found")
-    if settings.admin_token and not hmac.compare_digest(x_admin_token or "", settings.admin_token):
-        raise HTTPException(403, "Admin token required")
 
 
 router = APIRouter(prefix="/admin", tags=["admin"], dependencies=[Depends(require_demo_endpoints)])
