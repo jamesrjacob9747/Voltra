@@ -14,6 +14,7 @@ import '../widgets/motion.dart';
 import '../widgets/primary_bar.dart';
 import '../widgets/skeleton.dart';
 import '../widgets/snack.dart';
+import '../widgets/tab_shell.dart';
 
 /// The receipt: what the meter measured, what the driver pays and how it splits;
 /// then UPI payment and a rating for the host.
@@ -153,11 +154,12 @@ class _BillScreenState extends State<BillScreen> {
   /// Demo mode (no Razorpay keys on the server): stands in for the UPI app hand-off.
   Future<bool> _showUpiSheet(Bill b) async {
     final ok = await showModalBottomSheet<bool>(
+      isScrollControlled: true,
       context: context,
       builder: (context) {
         final vc = context.vc;
         return SafeArea(
-          child: Padding(
+          child: SingleChildScrollView(
             padding: const EdgeInsets.fromLTRB(Gap.xl, 0, Gap.xl, Gap.lg),
             child: Column(
               mainAxisSize: MainAxisSize.min,
@@ -207,7 +209,11 @@ class _BillScreenState extends State<BillScreen> {
     return ok ?? false;
   }
 
-  void _backToMap() => Navigator.of(context).popUntil((r) => r.isFirst);
+  /// Back to the driver's home shell, on its Home (map) tab, whichever tab the bill came from.
+  void _backToMap() {
+    TabShell.current?.goTo(0);
+    Navigator.of(context).popUntil((r) => r.isFirst);
+  }
 
   @override
   Widget build(BuildContext context) {

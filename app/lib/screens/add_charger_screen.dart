@@ -30,7 +30,10 @@ class AddChargerScreen extends StatefulWidget {
 
 class _AddChargerScreenState extends State<AddChargerScreen> {
   // One form per step, so "Continue" validates only what is on screen.
-  final _forms = [GlobalKey<FormState>(), GlobalKey<FormState>(), GlobalKey<FormState>()];
+  // A new key every time the step changes: during the slide between steps the outgoing and
+  // incoming forms are both mounted, and tapping Continue then Back quickly would otherwise
+  // put the same GlobalKey on both and crash.
+  var _form = GlobalKey<FormState>();
   final _name = TextEditingController();
   final _address = TextEditingController();
   final _power = TextEditingController(text: '3.3');
@@ -68,11 +71,12 @@ class _AddChargerScreenState extends State<AddChargerScreen> {
     setState(() {
       _forward = step > _step;
       _step = step;
+      _form = GlobalKey<FormState>();
     });
   }
 
   void _next() {
-    if (!_forms[_step].currentState!.validate()) {
+    if (!(_form.currentState?.validate() ?? false)) {
       HapticFeedback.heavyImpact();
       return;
     }
@@ -158,7 +162,7 @@ class _AddChargerScreenState extends State<AddChargerScreen> {
                 switchOutCurve: Motion.exit,
                 // The new step slides in from the side you are heading towards.
                 transitionBuilder: (child, animation) {
-                  final incoming = child.key == _forms[_step];
+                  final incoming = child.key == _form;
                   final from = Offset((incoming == _forward) ? 0.15 : -0.15, 0);
                   return FadeTransition(
                     opacity: animation,
@@ -169,7 +173,7 @@ class _AddChargerScreenState extends State<AddChargerScreen> {
                   );
                 },
                 child: Form(
-                  key: _forms[_step],
+                  key: _form,
                   child: KeyedSubtree(
                     key: ValueKey(_step),
                     child: switch (_step) {
@@ -296,7 +300,7 @@ class _AddChargerScreenState extends State<AddChargerScreen> {
                     ),
                   ],
                 ),
-                const SimpleAttributionWidget(source: Text('OpenStreetMap contributors')),
+                const MapCredit(),
               ],
             ),
           ),

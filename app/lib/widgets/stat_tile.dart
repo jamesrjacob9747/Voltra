@@ -76,6 +76,24 @@ class StatTile extends StatelessWidget {
   }
 }
 
+/// Grid layout for a block of [StatTile]s. Each row is as tall as a tile needs at the current
+/// text size (two-line labels included), instead of a fixed width-to-height ratio that runs
+/// out of room on narrow phones or with the system font size turned up.
+SliverGridDelegate statGridDelegate(BuildContext context, {bool compact = false, bool icon = false, int columns = 2}) {
+  final scale = MediaQuery.textScalerOf(context).scale(1);
+  final padding = compact ? Gap.md * 2 : Gap.lg * 2;
+  final iconRow = icon ? 18 + Gap.sm : 0;
+  // Generous line heights: a few spare pixels beat a clipped label on some phone's font.
+  final value = (compact ? 17 : 22) * 1.5; // one line of the figure
+  const label = 12 * 1.4 * 2; // up to two lines
+  return SliverGridDelegateWithFixedCrossAxisCount(
+    crossAxisCount: columns,
+    mainAxisSpacing: Gap.md,
+    crossAxisSpacing: Gap.md,
+    mainAxisExtent: padding + iconRow + 4 + scale * (value + label),
+  );
+}
+
 enum StatTone {
   /// Card surface with a border.
   plain,

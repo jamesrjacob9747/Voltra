@@ -29,16 +29,34 @@ class TabShell extends StatefulWidget {
   /// Lets a screen inside the shell jump to another tab: `TabShell.of(context)?.goTo(0)`.
   static TabShellState? of(BuildContext context) => context.findAncestorStateOfType<TabShellState>();
 
+  /// The shell currently on screen. Pages pushed on top of it (a bill, say) are not inside it,
+  /// so [of] can't find it from there; they use this to choose the tab they return to.
+  static TabShellState? get current => TabShellState._current;
+
   @override
   State<TabShell> createState() => TabShellState();
 }
 
 class TabShellState extends State<TabShell> {
+  static TabShellState? _current;
+
   int _index = 0;
   late final List<int> _visits = List.filled(widget.tabs.length, 0);
   late final Set<int> _opened = {0};
 
   int get index => _index;
+
+  @override
+  void initState() {
+    super.initState();
+    _current = this;
+  }
+
+  @override
+  void dispose() {
+    if (identical(_current, this)) _current = null;
+    super.dispose();
+  }
 
   void goTo(int index) {
     if (index == _index) return;

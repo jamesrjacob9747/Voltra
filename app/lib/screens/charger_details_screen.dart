@@ -49,17 +49,23 @@ class _ChargerDetailsScreenState extends State<ChargerDetailsScreen> {
     return FutureBuilder<Charger>(
       future: _charger,
       builder: (context, snap) {
+        void retry() => setState(() {
+          _charger = _load();
+        });
         final charger = snap.data ?? widget.preview;
-        if (charger != null) return _Details(charger: charger, user: widget.user);
+        if (charger != null) {
+          // Still showing the list's preview when the full details fail: say so, and offer a retry.
+          return _Details(
+            charger: charger,
+            user: widget.user,
+            error: snap.hasError && snap.data == null ? '${snap.error}' : null,
+            onRetry: retry,
+          );
+        }
         return Scaffold(
           appBar: AppBar(title: const Text('Charger')),
           body: snap.hasError
-              ? ErrorView(
-                  message: '${snap.error}',
-                  onRetry: () => setState(() {
-                    _charger = _load();
-                  }),
-                )
+              ? ErrorView(message: '${snap.error}', onRetry: retry)
               : const SkeletonList(item: ChargerCardSkeleton(), count: 3),
         );
       },
@@ -68,10 +74,14 @@ class _ChargerDetailsScreenState extends State<ChargerDetailsScreen> {
 }
 
 class _Details extends StatefulWidget {
-  const _Details({required this.charger, required this.user});
+  const _Details({required this.charger, required this.user, this.error, this.onRetry});
 
   final Charger charger;
   final AppUser user;
+
+  /// Set when the latest details failed to load and [charger] is the list's preview.
+  final String? error;
+  final VoidCallback? onRetry;
 
   @override
   State<_Details> createState() => _DetailsState();
@@ -122,6 +132,29 @@ class _DetailsState extends State<_Details> {
             padding: const EdgeInsets.fromLTRB(Gap.lg, Gap.lg, Gap.lg, Gap.xl),
             sliver: SliverList.list(
               children: [
+                if (widget.error != null) ...[
+                  Container(
+                    padding: const EdgeInsets.fromLTRB(Gap.md, Gap.sm, Gap.xs, Gap.sm),
+                    decoration: BoxDecoration(color: vc.warningTint, borderRadius: BorderRadius.circular(Radii.md)),
+                    child: Row(
+                      children: [
+                        Icon(Icons.cloud_off_rounded, color: vc.warning, size: 20),
+                        const SizedBox(width: Gap.sm),
+                        Expanded(
+                          child: Semantics(
+                            liveRegion: true,
+                            child: Text(
+                              'Couldn’t load the latest details. Showing what we had.',
+                              style: TextStyle(color: vc.ink, fontSize: 13, height: 1.3),
+                            ),
+                          ),
+                        ),
+                        TextButton(onPressed: widget.onRetry, child: const Text('Retry')),
+                      ],
+                    ),
+                  ),
+                  const SizedBox(height: Gap.lg),
+                ],
                 Entrance(
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,

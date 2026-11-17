@@ -128,13 +128,10 @@ class _ImpactScreenState extends State<ImpactScreen> {
             ),
           ),
           const SizedBox(height: Gap.md),
-          GridView.count(
-            crossAxisCount: 2,
+          GridView(
+            gridDelegate: statGridDelegate(context, icon: true),
             shrinkWrap: true,
             physics: const NeverScrollableScrollPhysics(),
-            mainAxisSpacing: Gap.md,
-            crossAxisSpacing: Gap.md,
-            childAspectRatio: 1.45,
             children: [
               tile(
                 2,
