@@ -99,7 +99,7 @@ class Push {
                     n.title ?? '',
                     style: const TextStyle(fontWeight: FontWeight.w700, color: Colors.white),
                   ),
-                  if (n.body != null) Text(n.body!, style: const TextStyle(color: Color(0xFFB8C4D0))),
+                  if (n.body != null) Text(n.body!, style: const TextStyle(color: VoltraColors.onNavySoft)),
                 ],
               ),
             ),

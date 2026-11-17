@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 
+import '../design/tokens.dart';
 import '../theme.dart';
 
 /// Status pill: icon + words, so colour never carries the meaning alone.
@@ -8,32 +9,38 @@ class BookingStatusPill extends StatelessWidget {
 
   final String status;
 
-  static (String, IconData, Color) describe(String status) => switch (status) {
-    'PENDING' => ('Waiting for host', Icons.hourglass_top, VoltraColors.amber),
-    'CONFIRMED' => ('Confirmed', Icons.check_circle, VoltraColors.darkGreen),
-    'ARRIVED' => ('Arrived', Icons.place, VoltraColors.darkGreen),
-    'CHARGING' => ('Charging', Icons.bolt, VoltraColors.darkGreen),
-    'COMPLETED' => ('Completed', Icons.task_alt, VoltraColors.muted),
-    'CANCELLED' => ('Cancelled', Icons.cancel, VoltraColors.grey),
-    _ => (status, Icons.info_outline, VoltraColors.grey),
+  static (String, IconData, Color) describe(String status, VoltraPalette vc) => switch (status) {
+    'PENDING' => ('Waiting for host', Icons.hourglass_top, vc.warning),
+    'CONFIRMED' => ('Confirmed', Icons.check_circle, vc.success),
+    'ARRIVED' => ('Arrived', Icons.place, vc.success),
+    'CHARGING' => ('Charging', Icons.bolt, vc.success),
+    'COMPLETED' => ('Completed', Icons.task_alt, vc.muted),
+    'CANCELLED' => ('Cancelled', Icons.cancel, vc.faint),
+    _ => (status, Icons.info_outline, vc.faint),
   };
 
   @override
   Widget build(BuildContext context) {
-    final (label, icon, color) = describe(status);
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
-      decoration: BoxDecoration(color: color.withValues(alpha: 0.12), borderRadius: BorderRadius.circular(999)),
-      child: Row(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          Icon(icon, size: 16, color: color),
-          const SizedBox(width: 4),
-          Text(
-            label,
-            style: TextStyle(color: color, fontWeight: FontWeight.w600, fontSize: 13),
-          ),
-        ],
+    final (label, icon, color) = describe(status, context.vc);
+    // The pill's colour and words glide to the new status instead of snapping.
+    return AnimatedContainer(
+      duration: Motion.medium,
+      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
+      decoration: BoxDecoration(color: color.withValues(alpha: 0.14), borderRadius: BorderRadius.circular(Radii.pill)),
+      child: AnimatedSwitcher(
+        duration: Motion.fast,
+        child: Row(
+          key: ValueKey(status),
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Icon(icon, size: 16, color: color),
+            const SizedBox(width: 4),
+            Text(
+              label,
+              style: TextStyle(color: color, fontWeight: FontWeight.w700, fontSize: 13),
+            ),
+          ],
+        ),
       ),
     );
   }

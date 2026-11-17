@@ -1,0 +1,11 @@
+# App icon. Regenerate after changing the artwork:  dart run flutter_launcher_icons
+# Artwork lives in assets/brand/ (drawn by a script; a green bolt on navy).
+flutter_launcher_icons:
+  android: true
+  ios: false
+  image_path: assets/brand/icon.png
+  # Android 8+ adaptive icon: the launcher crops the navy background to its own shape.
+  adaptive_icon_background: "#0E1A2B"
+  adaptive_icon_foreground: assets/brand/icon_foreground.png
+  # Android 13+ themed (monochrome) icon.
+  adaptive_icon_monochrome: assets/brand/icon_foreground.png

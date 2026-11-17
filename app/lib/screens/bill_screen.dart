@@ -1,13 +1,18 @@
 import 'dart:async';
 
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:razorpay_flutter/razorpay_flutter.dart';
 
 import '../api.dart';
+import '../design/tokens.dart';
 import '../format.dart';
 import '../models.dart';
 import '../theme.dart';
 import '../widgets/error_view.dart';
+import '../widgets/motion.dart';
+import '../widgets/primary_bar.dart';
+import '../widgets/skeleton.dart';
 import '../widgets/snack.dart';
 
 /// The receipt: what the meter measured, what the driver pays and how it splits;
@@ -75,7 +80,10 @@ class _BillScreenState extends State<BillScreen> {
         if (!approved) return;
         paid = await api.demoPay(b.bookingId);
       }
-      if (mounted) setState(() => _bill = paid);
+      if (mounted) {
+        HapticFeedback.mediumImpact();
+        setState(() => _bill = paid);
+      }
     } on ApiException catch (e) {
       if (mounted) showSnack(context, e.message);
     } finally {
@@ -146,154 +154,233 @@ class _BillScreenState extends State<BillScreen> {
   Future<bool> _showUpiSheet(Bill b) async {
     final ok = await showModalBottomSheet<bool>(
       context: context,
-      showDragHandle: true,
-      builder: (context) => SafeArea(
-        child: Padding(
-          padding: const EdgeInsets.fromLTRB(20, 0, 20, 20),
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              const Row(
-                children: [
-                  Icon(Icons.account_balance_wallet_outlined, color: VoltraColors.darkGreen),
-                  SizedBox(width: 8),
-                  Text('Pay with UPI', style: TextStyle(fontSize: 20, fontWeight: FontWeight.w700)),
-                ],
-              ),
-              const SizedBox(height: 4),
-              const Text(
-                'Demo mode: no money moves. With Razorpay test keys on the server, this opens Razorpay Checkout.',
-                style: TextStyle(color: VoltraColors.muted),
-              ),
-              const SizedBox(height: 20),
-              Center(
-                child: Text(
-                  rupees(b.payablePaise, exact: true),
-                  style: const TextStyle(fontSize: 40, fontWeight: FontWeight.w800),
+      builder: (context) {
+        final vc = context.vc;
+        return SafeArea(
+          child: Padding(
+            padding: const EdgeInsets.fromLTRB(Gap.xl, 0, Gap.xl, Gap.lg),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [
+                Row(
+                  children: [
+                    Icon(Icons.account_balance_wallet_outlined, color: vc.brand),
+                    const SizedBox(width: Gap.sm),
+                    Text(
+                      'Pay with UPI',
+                      style: TextStyle(fontSize: 21, fontWeight: FontWeight.w800, color: vc.ink),
+                    ),
+                  ],
                 ),
-              ),
-              const Center(
-                child: Text('to Voltra', style: TextStyle(color: VoltraColors.muted)),
-              ),
-              const SizedBox(height: 20),
-              FilledButton(
-                onPressed: () => Navigator.pop(context, true),
-                child: Text('Approve ${rupees(b.payablePaise, exact: true)}'),
-              ),
-              TextButton(onPressed: () => Navigator.pop(context, false), child: const Text('Cancel')),
-            ],
+                const SizedBox(height: Gap.xs),
+                Text(
+                  'Demo mode: no money moves. With Razorpay test keys on the server, this opens Razorpay Checkout.',
+                  style: TextStyle(color: vc.muted, height: 1.35),
+                ),
+                const SizedBox(height: Gap.xl),
+                Center(
+                  child: Text(
+                    rupees(b.payablePaise, exact: true),
+                    style: TextStyle(fontSize: 44, fontWeight: FontWeight.w800, color: vc.ink, letterSpacing: -1),
+                  ),
+                ),
+                Center(
+                  child: Text('to Voltra', style: TextStyle(color: vc.muted)),
+                ),
+                const SizedBox(height: Gap.xl),
+                FilledButton(
+                  onPressed: () => Navigator.pop(context, true),
+                  child: Text('Approve ${rupees(b.payablePaise, exact: true)}'),
+                ),
+                TextButton(
+                  style: TextButton.styleFrom(foregroundColor: vc.muted),
+                  onPressed: () => Navigator.pop(context, false),
+                  child: const Text('Cancel'),
+                ),
+              ],
+            ),
           ),
-        ),
-      ),
+        );
+      },
     );
     return ok ?? false;
   }
 
+  void _backToMap() => Navigator.of(context).popUntil((r) => r.isFirst);
+
   @override
   Widget build(BuildContext context) {
+    final b = _bill;
+    final s = _session;
+    final loaded = b != null && s != null;
+    final paid = b?.status == 'PAID';
+    final backLink = TextButton(
+      style: TextButton.styleFrom(foregroundColor: context.vc.muted),
+      onPressed: _backToMap,
+      child: const Text('Back to map'),
+    );
     return Scaffold(
       appBar: AppBar(title: const Text('Your bill'), automaticallyImplyLeading: false),
-      body: _bill == null || _session == null
-          ? (_error != null
+      body: loaded
+          ? _buildBody(b, s)
+          : (_error != null
                 ? ErrorView(message: _error!, onRetry: _load)
-                : const Center(child: CircularProgressIndicator()))
-          : _buildBody(_bill!, _session!),
+                : const Shimmer(
+                    child: Padding(
+                      padding: EdgeInsets.all(Gap.lg),
+                      child: Column(
+                        children: [
+                          SizedBox(height: Gap.lg),
+                          Skeleton.circle(72),
+                          SizedBox(height: Gap.lg),
+                          Skeleton(width: 180, height: 40),
+                          SizedBox(height: Gap.xl),
+                          Skeleton(height: 220, radius: Radii.lg),
+                        ],
+                      ),
+                    ),
+                  )),
+      bottomNavigationBar: !loaded
+          ? null
+          : paid
+          ? PrimaryBar(icon: Icons.map_outlined, label: 'Back to map', onPressed: _backToMap)
+          : PrimaryBar(
+              icon: Icons.payments_outlined,
+              label: b.payablePaise == 0
+                  ? 'Confirm · paid by credit'
+                  : 'Pay ${rupees(b.payablePaise, exact: true)} with UPI',
+              busy: _paying,
+              onPressed: () => _pay(b),
+              secondary: backLink,
+            ),
     );
   }
 
   Widget _buildBody(Bill b, LiveSession s) {
+    final vc = context.vc;
     final paid = b.status == 'PAID';
-    return Column(
+    return ListView(
+      padding: const EdgeInsets.fromLTRB(Gap.lg, Gap.lg, Gap.lg, Gap.xl),
       children: [
-        Expanded(
-          child: ListView(
-            padding: const EdgeInsets.all(16),
-            children: [
-              Icon(paid ? Icons.verified : Icons.task_alt, color: VoltraColors.darkGreen, size: 48),
-              const SizedBox(height: 8),
-              Text(
-                rupees(b.payablePaise, exact: true),
-                textAlign: TextAlign.center,
-                style: const TextStyle(fontSize: 44, fontWeight: FontWeight.w800, color: VoltraColors.ink),
-              ),
-              Text(
-                paid
-                    ? 'Paid · ${b.energyKwh.toStringAsFixed(3)} kWh at ${s.chargerName}'
-                    : 'for ${b.energyKwh.toStringAsFixed(3)} kWh at ${s.chargerName}',
-                textAlign: TextAlign.center,
-                style: TextStyle(
-                  color: paid ? VoltraColors.darkGreen : VoltraColors.muted,
-                  fontWeight: paid ? FontWeight.w600 : FontWeight.w400,
-                ),
-              ),
-              const SizedBox(height: 20),
-              if (paid) ...[_RatingCard(bookingId: b.bookingId, user: widget.user), const SizedBox(height: 12)],
-              Card(
-                child: Padding(
-                  padding: const EdgeInsets.all(16),
-                  child: Column(
-                    children: [
-                      // Three decimals, as billed: kWh × rate must visibly equal the total.
-                      _Line('Energy (smart meter)', '${b.energyKwh.toStringAsFixed(3)} kWh'),
-                      _Line('Rate', pricePerKwh(s.pricePerKwhPaise)),
-                      _Line('Charging time', elapsed(s.durationS)),
-                      const Divider(height: 24),
-                      _Line('Charging total', rupees(b.totalPaise, exact: true), bold: true),
-                      if (b.creditPaise > 0)
-                        _Line('ChargeSure credit', '− ${rupees(b.creditPaise, exact: true)}', accent: true),
-                      _Line(paid ? 'You paid' : 'You pay', rupees(b.payablePaise, exact: true), bold: true),
-                    ],
-                  ),
-                ),
-              ),
-              const SizedBox(height: 12),
-              Card(
-                child: Padding(
-                  padding: const EdgeInsets.all(16),
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      const Text('Where your money goes', style: TextStyle(fontWeight: FontWeight.w700)),
-                      const SizedBox(height: 8),
-                      _Line('Host receives (85%)', rupees(b.hostSharePaise, exact: true)),
-                      _Line('Voltra fee (15%)', rupees(b.platformFeePaise, exact: true)),
-                      if (b.creditPaise > 0)
-                        const Text(
-                          'Voltra pays the ChargeSure credit; the host is still paid in full.',
-                          style: TextStyle(color: VoltraColors.muted, fontSize: 12),
-                        ),
-                    ],
-                  ),
-                ),
-              ),
-            ],
+        Center(
+          child: SizedBox(
+            height: 72,
+            child: AnimatedSwitcher(
+              duration: Motion.medium,
+              child: paid
+                  ? const AnimatedCheck(key: ValueKey('paid'))
+                  : Container(
+                      key: const ValueKey('due'),
+                      width: 72,
+                      height: 72,
+                      decoration: BoxDecoration(color: vc.brandTint, shape: BoxShape.circle),
+                      child: Icon(Icons.receipt_long, color: vc.brand, size: 34),
+                    ),
+            ),
           ),
         ),
-        SafeArea(
-          top: false,
-          child: Padding(
-            padding: const EdgeInsets.fromLTRB(16, 8, 16, 16),
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                if (!paid)
-                  FilledButton.icon(
-                    icon: _paying
-                        ? const SizedBox(width: 18, height: 18, child: CircularProgressIndicator(strokeWidth: 2))
-                        : const Icon(Icons.payments_outlined),
-                    label: Text(
-                      b.payablePaise == 0
-                          ? 'Confirm (covered by ChargeSure credit)'
-                          : 'Pay ${rupees(b.payablePaise, exact: true)} with UPI',
-                    ),
-                    onPressed: _paying ? null : () => _pay(b),
+        const SizedBox(height: Gap.md),
+        Center(
+          child: CountUp(
+            value: b.payablePaise.toDouble(),
+            format: (v) => rupees(v.round(), exact: true),
+            style: TextStyle(
+              fontSize: 46,
+              fontWeight: FontWeight.w800,
+              color: vc.ink,
+              letterSpacing: -1.5,
+              fontFeatures: const [FontFeature.tabularFigures()],
+            ),
+          ),
+        ),
+        AnimatedSwitcher(
+          duration: Motion.medium,
+          child: Text(
+            paid
+                ? 'Paid · ${b.energyKwh.toStringAsFixed(3)} kWh at ${s.chargerName}'
+                : 'for ${b.energyKwh.toStringAsFixed(3)} kWh at ${s.chargerName}',
+            key: ValueKey(paid),
+            textAlign: TextAlign.center,
+            style: TextStyle(color: paid ? vc.success : vc.muted, fontWeight: paid ? FontWeight.w700 : FontWeight.w400),
+          ),
+        ),
+        const SizedBox(height: Gap.xl),
+        // The rating slides in once the payment is through.
+        AnimatedSize(
+          duration: Motion.slow,
+          curve: Motion.enter,
+          alignment: Alignment.topCenter,
+          child: paid
+              ? Padding(
+                  padding: const EdgeInsets.only(bottom: Gap.md),
+                  child: Entrance(
+                    child: _RatingCard(bookingId: b.bookingId, user: widget.user),
                   ),
-                TextButton(
-                  onPressed: () => Navigator.of(context).popUntil((r) => r.isFirst),
-                  child: const Text('Back to map'),
-                ),
-              ],
+                )
+              : const SizedBox(width: double.infinity),
+        ),
+        Entrance(
+          index: 1,
+          child: Card(
+            child: Padding(
+              padding: const EdgeInsets.all(Gap.lg),
+              child: Column(
+                children: [
+                  // Three decimals, as billed: kWh × rate must visibly equal the total.
+                  _Line('Energy (smart meter)', '${b.energyKwh.toStringAsFixed(3)} kWh'),
+                  _Line('Rate', pricePerKwh(s.pricePerKwhPaise)),
+                  _Line('Charging time', elapsed(s.durationS)),
+                  const Divider(height: Gap.xl),
+                  _Line('Charging total', rupees(b.totalPaise, exact: true), bold: true),
+                  if (b.creditPaise > 0)
+                    _Line('ChargeSure credit', '− ${rupees(b.creditPaise, exact: true)}', accent: true),
+                  _Line(paid ? 'You paid' : 'You pay', rupees(b.payablePaise, exact: true), bold: true),
+                ],
+              ),
+            ),
+          ),
+        ),
+        const SizedBox(height: Gap.md),
+        Entrance(
+          index: 2,
+          child: Card(
+            child: Padding(
+              padding: const EdgeInsets.all(Gap.lg),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    'Where your money goes',
+                    style: TextStyle(fontWeight: FontWeight.w800, fontSize: 16, color: vc.ink),
+                  ),
+                  const SizedBox(height: Gap.md),
+                  // 85 : 15, drawn to scale.
+                  ExcludeSemantics(
+                    child: ClipRRect(
+                      borderRadius: BorderRadius.circular(Radii.pill),
+                      child: Row(
+                        children: [
+                          Expanded(flex: 85, child: Container(height: 10, color: vc.brand)),
+                          const SizedBox(width: 3),
+                          Expanded(flex: 15, child: Container(height: 10, color: vc.faint)),
+                        ],
+                      ),
+                    ),
+                  ),
+                  const SizedBox(height: Gap.md),
+                  _Line('Host receives (85%)', rupees(b.hostSharePaise, exact: true), dot: vc.brand),
+                  _Line('Voltra fee (15%)', rupees(b.platformFeePaise, exact: true), dot: vc.faint),
+                  if (b.creditPaise > 0)
+                    Padding(
+                      padding: const EdgeInsets.only(top: Gap.xs),
+                      child: Text(
+                        'Voltra pays the ChargeSure credit; the host is still paid in full.',
+                        style: TextStyle(color: vc.muted, fontSize: 12),
+                      ),
+                    ),
+                ],
+              ),
             ),
           ),
         ),
@@ -340,52 +427,92 @@ class _RatingCardState extends State<_RatingCard> {
 
   @override
   Widget build(BuildContext context) {
+    final vc = context.vc;
+    final still = Motion.reduced(context);
+    final Widget content;
     if (_done) {
-      return const Card(
-        child: ListTile(
-          leading: Icon(Icons.favorite, color: VoltraColors.darkGreen),
-          title: Text('Thanks for rating your host'),
-          subtitle: Text('Your rating shows on this charger’s listing.'),
-        ),
+      content = Row(
+        key: const ValueKey('thanks'),
+        children: [
+          Icon(Icons.favorite, color: vc.brand),
+          const SizedBox(width: Gap.md),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  'Thanks for rating your host',
+                  style: TextStyle(fontWeight: FontWeight.w800, fontSize: 16, color: vc.ink),
+                ),
+                Text('Your rating shows on this charger’s listing.', style: TextStyle(color: vc.muted)),
+              ],
+            ),
+          ),
+        ],
+      );
+    } else {
+      content = Column(
+        key: const ValueKey('form'),
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(
+            'How was your charge?',
+            style: TextStyle(fontSize: 17, fontWeight: FontWeight.w800, color: vc.ink),
+          ),
+          const SizedBox(height: Gap.xs),
+          Row(
+            children: [
+              for (var i = 1; i <= 5; i++)
+                IconButton(
+                  tooltip: '$i star${i == 1 ? '' : 's'}',
+                  // Each chosen star pops, one after the other, up to the one tapped.
+                  icon: AnimatedScale(
+                    scale: i <= _stars ? 1.15 : 1,
+                    duration: still ? Duration.zero : Motion.medium + Motion.stagger * i,
+                    curve: Curves.easeOutBack,
+                    child: Icon(
+                      i <= _stars ? Icons.star_rounded : Icons.star_outline_rounded,
+                      color: i <= _stars ? vc.warning : vc.faint,
+                      size: 36,
+                    ),
+                  ),
+                  onPressed: () {
+                    HapticFeedback.selectionClick();
+                    setState(() => _stars = i);
+                  },
+                ),
+            ],
+          ),
+          const SizedBox(height: Gap.xs),
+          Wrap(
+            spacing: Gap.sm,
+            runSpacing: Gap.xs,
+            children: [
+              for (final t in _tags)
+                FilterChip(
+                  label: Text(t),
+                  selected: _picked.contains(t),
+                  onSelected: (on) => setState(() => on ? _picked.add(t) : _picked.remove(t)),
+                ),
+            ],
+          ),
+          const SizedBox(height: Gap.md),
+          FilledButton(
+            style: FilledButton.styleFrom(minimumSize: const Size.fromHeight(46)),
+            onPressed: _stars == 0 || _sending ? null : _submit,
+            child: const Text('Submit rating'),
+          ),
+        ],
       );
     }
     return Card(
       child: Padding(
-        padding: const EdgeInsets.all(16),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            const Text('How was your charge?', style: TextStyle(fontSize: 17, fontWeight: FontWeight.w700)),
-            const SizedBox(height: 8),
-            Row(
-              children: [
-                for (var i = 1; i <= 5; i++)
-                  IconButton(
-                    tooltip: '$i star${i == 1 ? '' : 's'}',
-                    icon: Icon(i <= _stars ? Icons.star : Icons.star_border, color: VoltraColors.amber, size: 32),
-                    onPressed: () => setState(() => _stars = i),
-                  ),
-              ],
-            ),
-            Wrap(
-              spacing: 8,
-              runSpacing: 4,
-              children: [
-                for (final t in _tags)
-                  FilterChip(
-                    label: Text(t),
-                    selected: _picked.contains(t),
-                    onSelected: (on) => setState(() => on ? _picked.add(t) : _picked.remove(t)),
-                  ),
-              ],
-            ),
-            const SizedBox(height: 12),
-            FilledButton(
-              style: FilledButton.styleFrom(minimumSize: const Size.fromHeight(44)),
-              onPressed: _stars == 0 || _sending ? null : _submit,
-              child: const Text('Submit rating'),
-            ),
-          ],
+        padding: const EdgeInsets.all(Gap.lg),
+        child: AnimatedSize(
+          duration: Motion.medium,
+          curve: Motion.enter,
+          alignment: Alignment.topCenter,
+          child: AnimatedSwitcher(duration: Motion.medium, child: content),
         ),
       ),
     );
@@ -393,26 +520,45 @@ class _RatingCardState extends State<_RatingCard> {
 }
 
 class _Line extends StatelessWidget {
-  const _Line(this.label, this.value, {this.bold = false, this.accent = false});
+  const _Line(this.label, this.value, {this.bold = false, this.accent = false, this.dot});
 
   final String label;
   final String value;
   final bool bold;
   final bool accent;
 
+  /// A colour key before the label, matching a segment of the split bar.
+  final Color? dot;
+
   @override
   Widget build(BuildContext context) {
+    final vc = context.vc;
+    final color = accent ? vc.success : (bold ? vc.ink : vc.muted);
     final style = TextStyle(
-      fontWeight: bold || accent ? FontWeight.w700 : FontWeight.w400,
+      fontWeight: bold || accent ? FontWeight.w800 : FontWeight.w500,
       fontSize: bold ? 17 : 15,
-      color: accent ? VoltraColors.darkGreen : null,
+      color: color,
     );
     return Padding(
-      padding: const EdgeInsets.symmetric(vertical: 4),
+      padding: const EdgeInsets.symmetric(vertical: 5),
       child: Row(
         children: [
+          if (dot != null) ...[
+            Container(
+              width: 10,
+              height: 10,
+              decoration: BoxDecoration(color: dot, shape: BoxShape.circle),
+            ),
+            const SizedBox(width: Gap.sm),
+          ],
           Expanded(child: Text(label, style: style)),
-          Text(value, style: style),
+          Text(
+            value,
+            style: style.copyWith(
+              color: accent ? vc.success : vc.ink,
+              fontFeatures: const [FontFeature.tabularFigures()],
+            ),
+          ),
         ],
       ),
     );
