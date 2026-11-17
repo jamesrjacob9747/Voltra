@@ -4,7 +4,9 @@ import '../api.dart';
 import '../config.dart';
 import '../models.dart';
 import '../theme.dart';
+import '../design/tokens.dart';
 import '../widgets/error_view.dart';
+import '../widgets/skeleton.dart';
 import '../widgets/snack.dart';
 
 /// Stage controls for the pitch: take a charger offline to trigger ChargeSure,
@@ -79,27 +81,39 @@ class _DemoControlsScreenState extends State<DemoControlsScreen> {
               }),
             );
           }
-          if (!snap.hasData) return const Center(child: CircularProgressIndicator());
+          if (!snap.hasData) return const SkeletonList(item: BookingRowSkeleton(), count: 6);
+          final vc = context.vc;
           return ListView(
-            padding: const EdgeInsets.all(16),
+            padding: const EdgeInsets.fromLTRB(Gap.lg, Gap.sm, Gap.lg, Gap.xl),
             children: [
-              const Text(
-                'Switch a charger off to show ChargeSure. Smart plugs are simulated until the hardware arrives.',
-                style: TextStyle(color: VoltraColors.muted),
+              Text(
+                'Switch a charger off to show ChargeSure. Smart plugs are simulated in this build.',
+                style: TextStyle(color: vc.muted, height: 1.35),
               ),
-              const SizedBox(height: 12),
+              const SizedBox(height: Gap.md),
               for (final c in snap.data!)
-                Card(
-                  child: SwitchListTile(
-                    title: Text(c.name, style: const TextStyle(fontWeight: FontWeight.w600)),
-                    subtitle: Text('${c.deviceId} · ${c.online ? 'online' : 'offline'}'),
-                    value: c.online,
-                    onChanged: _busy.contains(c.deviceId) ? null : (v) => _toggle(c, v),
+                Padding(
+                  padding: const EdgeInsets.only(bottom: Gap.sm),
+                  child: Card(
+                    child: SwitchListTile(
+                      secondary: Icon(
+                        c.online ? Icons.ev_station : Icons.power_off,
+                        color: c.online ? vc.success : vc.faint,
+                      ),
+                      title: Text(c.name, style: const TextStyle(fontWeight: FontWeight.w700)),
+                      subtitle: Text('${c.deviceId} · ${c.online ? 'online' : 'offline'}'),
+                      value: c.online,
+                      onChanged: _busy.contains(c.deviceId) ? null : (v) => _toggle(c, v),
+                    ),
                   ),
                 ),
-              const SizedBox(height: 16),
+              const SizedBox(height: Gap.md),
               OutlinedButton.icon(
-                style: OutlinedButton.styleFrom(minimumSize: const Size.fromHeight(48)),
+                style: OutlinedButton.styleFrom(
+                  minimumSize: const Size.fromHeight(48),
+                  foregroundColor: vc.danger,
+                  side: BorderSide(color: vc.danger.withValues(alpha: 0.5)),
+                ),
                 icon: const Icon(Icons.restart_alt),
                 label: const Text('Reset all demo data'),
                 onPressed: _reset,

@@ -6,9 +6,9 @@ Everything you need on demo day: set up, run the 5-minute pitch with the live de
 
 ### Option A: hosted (recommended once deployed; no laptop needed)
 
-1. **Wake the server** 2 minutes before you start: open `https://YOUR-SERVICE.onrender.com/health` until it shows `"ok": true`. The free plan sleeps after 15 idle minutes, and the first request takes 30–60 s.
+1. **Wake the server** 2 minutes before you start: open `https://voltra-nrj1.onrender.com/health` until it shows `"ok": true`. The free plan sleeps after 15 idle minutes, and the first request takes 30–60 s.
 2. **Phone:** the release app built for the hosted API (README → Deploy) is already installed. Mobile data or any Wi-Fi works.
-3. **Reset:** in the app, **Demo controls → Reset all demo data**. This works because the app was built with your admin token.
+3. **Reset:** in the app, **Demo controls → Reset all demo data** (on the welcome screen, or **Profile → Demo controls** once logged in).
 4. Steps 6–7 below (stickers and backup video) still apply.
 
 If the hosted server misbehaves, switch to Option B.
@@ -53,36 +53,38 @@ Use local SQLite for speed: in `backend/.env`, comment out the Supabase `DATABAS
 
 **Part A: a charge, start to finish (Arjun, driver)**
 
-1. Log in as **Arjun** → **Find me a charge**.
+The app has a bottom bar: **Home** (map), **Bookings**, **Impact**, **Profile**. Hosts get **Dashboard**, **Chargers**, **Profile**. Switching user, switching between driving and hosting, and **Demo controls** all live under **Profile**.
+
+1. Log in as **Arjun** → tap the **Find me a charge** bar at the top of the map.
    Say: *“I tell Voltra what I need, not where to go: 25% to 80% by 3 PM.”*
-2. **Find my charger.** Point at the best match: distance, ₹/kWh, Charging Confidence, ready-by time and cost.
+2. **Find my charger** (the bottom button). Point at the **BEST MATCH** card: distance, ₹/kWh, Charging Confidence, ready-by time and cost.
    Say: *“It knows my Ather charges at 0.75 kW, so it estimates 2 h 27 min and about ₹20.”*
-3. **Reserve** → confirmed instantly; the exact address unlocks.
+3. **Reserve** → confirmed instantly; the progress tracker ticks to *Confirmed* and the exact address unlocks.
 4. **Scan QR to start charging** → scan CHG002’s sticker (or **Enter code** → `CHG002`).
-5. Live screen: kWh and ₹ count up.
+5. Live screen: the ring turns while kWh and ₹ roll up.
    Say: *“That’s the smart meter, not an estimate. The demo runs 30× faster, as the badge says.”*
 6. **Stop charging** → **Stop**. The bill: kWh × rate, 85% to the host, 15% to Voltra.
-7. **Pay with UPI** → **Approve** → rate the host 5 stars.
+7. **Pay ₹X with UPI** → pay in Razorpay's test checkout (or **Approve** in demo mode) → the tick appears → rate the host 5 stars → **Submit rating**.
 
 **Part B: ChargeSure (the differentiator)**
 
-1. **Back to map** → tap **Manoj’s Home Charger** in the list → **Book this charger** → **Confirm booking**.
-2. **Switch Manoj’s charger off:** back to the map → switch-user icon (top right) → **Demo controls** → turn off **Manoj’s Home Charger** → back → **Arjun** → receipt icon (**My bookings**) → the Manoj booking.
+1. **Back to map** → tap **Manoj’s Home Charger** in the sheet of cards (or its pin) → **Book this charger** → **Confirm booking**.
+2. **Switch Manoj’s charger off:** **Profile** tab → **Demo controls** → turn off **Manoj’s Home Charger** → back → **Bookings** tab → the Manoj booking.
    (Smoother with two devices: keep Arjun on the booking screen and flip the switch on the second one.)
 3. Within a few seconds the **ChargeSure** panel appears with ranked nearby chargers.
    Say: *“Other apps say ‘sorry’. Voltra rebooks you in one tap and pays you ₹20 for the trouble.”*
 4. **Move my booking here** → new booking with the credit.
 
-**Optional, if time:** log in as **Rahul** (host) to show the dashboard: earnings, the live session card, Accept/Decline on requests.
+**Optional, if time:** **Profile → Switch user** → **Rahul** (host) to show the dashboard: earnings, the live session card, Accept/Decline on requests. For a request to accept, book **Ejipura Garage Socket** (CHG007, Manoj) or **Priya’s Wallbox** (CHG004, Priya) as Arjun: those hosts approve each booking.
 
 ## 3. If something breaks
 
 | Problem | Do this |
 |---|---|
 | App says it can’t reach the server | Backend terminal still running? Phone on the same network? Wrong IP → re-run `flutter run` with the right `API_URL`. |
-| Map is grey | Tiles need internet without HTTPS inspection. Carry on: the charger list under the map still works. |
+| Map is grey | Tiles need internet without HTTPS inspection. Carry on: the sheet of charger cards still works. |
 | Camera won’t read the QR | **Enter code** → `CHG002`. |
-| Payment sheet misbehaves | It’s demo mode; **Approve** only calls our server. If it fails, say “payment is mocked for the hackathon” and move on. |
+| Payment misbehaves | Razorpay runs in test mode, and without keys the server falls back to a demo **Approve** sheet that only calls our server. If either fails, say “payments are in test mode for the hackathon” and move on. |
 | Demo data is messy | **Demo controls → Reset all demo data**. |
 | Anything else | Play the backup recording and talk over it. |
 
@@ -90,10 +92,10 @@ Use local SQLite for speed: in `backend/.env`, comment out the Supabase `DATABAS
 
 Made during rehearsal on the emulator (portrait MP4s, no sound):
 
-- `demo-backup/1-charge-and-pay.mp4`: Part A
-- `demo-backup/2-chargesure.mp4`: Part B
+- `demo-backup/1-chargematch.mp4`, `2-charge-and-pay.mp4`: Part A
+- `demo-backup/3-chargesure.mp4`: Part B
 
-They live outside the repo, in `D:\Voltra\demo-backup\`, so the repo stays small.
+They live outside the repo, in `D:\Voltra\demo-backup\`, so the repo stays small. **They show the old design** (before the redesign): re-record them before using them on stage.
 
 ## 5. Judge questions
 

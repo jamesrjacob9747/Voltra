@@ -1,0 +1,14 @@
+# Launch screen. Regenerate after changing it:  dart run flutter_native_splash:create
+# Navy in both light and dark mode, matching the welcome screen it hands over to.
+flutter_native_splash:
+  color: "#0E1A2B"
+  image: assets/brand/splash.png
+  color_dark: "#0E1A2B"
+  image_dark: assets/brand/splash.png
+  android_12:
+    color: "#0E1A2B"
+    image: assets/brand/splash.png
+    color_dark: "#0E1A2B"
+    image_dark: assets/brand/splash.png
+  ios: false
+  web: false

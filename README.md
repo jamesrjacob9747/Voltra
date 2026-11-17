@@ -62,9 +62,21 @@ flutter run --dart-define=API_URL=http://LAPTOP_IP:8000  # real phone on the sam
 Debug builds may use plain HTTP (the laptop). **Release builds are HTTPS-only**, so build them for the hosted API (see [Deploy](#deploy)).
 
 ```bash
-flutter test      # unit tests
+flutter test      # unit and widget tests
 flutter analyze
 ```
+
+### Design
+
+- **Navigation:** drivers get a bottom bar with Home (map), Bookings, Impact and Profile; hosts get Dashboard, Chargers and Profile. Profile switches between driving and hosting, switches user, and holds Demo controls and the theme setting.
+- **Light and dark themes** follow the phone's setting; **Profile → Appearance** overrides it. Colours come from `VoltraPalette` in `lib/theme.dart` (read it as `context.vc`); spacing, corner radii and animation timings from `lib/design/tokens.dart`. The live-charging, Impact and welcome screens stay navy in both themes.
+- **Shared widgets** in `lib/widgets/`: skeleton loaders, empty and error states, the bottom action bar (`PrimaryBar`), stat tiles, count-up numbers, press feedback. Animations are skipped when the phone's "remove animations" setting is on.
+- **Font:** Plus Jakarta Sans, bundled in `assets/fonts/` (SIL Open Font License).
+- **App icon and launch screen** are generated from `assets/brand/` (a green bolt on navy). After changing the artwork:
+  ```bash
+  dart run flutter_launcher_icons
+  dart run flutter_native_splash:create
+  ```
 
 ## Demo data
 
@@ -78,11 +90,11 @@ Each charger's QR code is `voltra://charger/CHG001` … `CHG008`. CHG002 (Rahul)
 
 ## Hosts add chargers
 
-On the host dashboard, **Add charger** opens a form: name, address, a pin placed on the map, connector, max power, price per kWh, opening hours and instant booking. The new charger gets the next code (`CHG009`, …), which the app shows straight away. The host writes it next to the socket, and drivers type it with **Enter code** on the scan screen to start charging. New chargers are listed as unverified, and drivers see only an approximate pin until their booking is confirmed. Hosts see all their chargers, with codes, under **My chargers**.
+In the host's **Chargers** tab, **Add charger** opens a three-step form: details (name, connector, max power, instant booking), location (address and a pin placed on the map), then price and opening hours. The new charger gets the next code (`CHG009`, …), which the app shows straight away. The host writes it next to the socket, and drivers type it with **Enter code** on the scan screen to start charging. New chargers are listed as unverified, and drivers see only an approximate pin until their booking is confirmed. The **Chargers** tab lists all the host's chargers with their codes.
 
 ## Demo controls
 
-In the app: **Demo controls** on the login screen (charger on/off switches, reset). Or over HTTP:
+In the app: **Demo controls** on the welcome screen, or under **Profile** once logged in (charger on/off switches, reset). Or over HTTP:
 
 | Action | Call |
 |---|---|
