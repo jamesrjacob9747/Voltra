@@ -519,23 +519,28 @@ class _Tracker extends StatelessWidget {
             Row(
               mainAxisAlignment: MainAxisAlignment.spaceBetween,
               children: [
+                // Five equal columns, so the row always fits; a label too long for its
+                // column (narrow phone, large text) shrinks rather than overflowing.
                 for (final (i, stage) in _stages.indexed)
-                  SizedBox(
-                    width: 58,
-                    child: Text(
-                      stage,
-                      textAlign: i == 0
-                          ? TextAlign.left
-                          : i == _stages.length - 1
-                          ? TextAlign.right
-                          : TextAlign.center,
-                      maxLines: 1,
-                      overflow: TextOverflow.visible,
-                      softWrap: false,
-                      style: TextStyle(
-                        fontSize: 11,
-                        fontWeight: i <= done ? FontWeight.w700 : FontWeight.w500,
-                        color: i <= done ? vc.ink : vc.faint,
+                  Expanded(
+                    child: Padding(
+                      padding: const EdgeInsets.symmetric(horizontal: 2),
+                      child: FittedBox(
+                        fit: BoxFit.scaleDown,
+                        alignment: i == 0
+                            ? Alignment.centerLeft
+                            : i == _stages.length - 1
+                            ? Alignment.centerRight
+                            : Alignment.center,
+                        child: Text(
+                          stage,
+                          maxLines: 1,
+                          style: TextStyle(
+                            fontSize: 11,
+                            fontWeight: i <= done ? FontWeight.w700 : FontWeight.w500,
+                            color: i <= done ? vc.ink : vc.faint,
+                          ),
+                        ),
                       ),
                     ),
                   ),

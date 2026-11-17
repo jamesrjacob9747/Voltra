@@ -22,6 +22,34 @@ TileLayer voltraTiles(BuildContext context) {
   );
 }
 
+/// The OpenStreetMap credit every map must show, in the bottom-right corner. Unlike
+/// flutter_map's own attribution row, it shrinks to fit narrow maps and large text.
+class MapCredit extends StatelessWidget {
+  const MapCredit({super.key});
+
+  @override
+  Widget build(BuildContext context) {
+    return Align(
+      alignment: Alignment.bottomRight,
+      child: Container(
+        margin: const EdgeInsets.all(4),
+        padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+        decoration: BoxDecoration(color: Colors.white.withValues(alpha: 0.85), borderRadius: BorderRadius.circular(4)),
+        child: const FittedBox(
+          fit: BoxFit.scaleDown,
+          child: Text(
+            '© OpenStreetMap contributors',
+            maxLines: 1,
+            // Fixed size: a legal credit, not reading text; it must fit on any map.
+            textScaler: TextScaler.noScaling,
+            style: TextStyle(fontSize: 11, color: Color(0xFF1C2633)),
+          ),
+        ),
+      ),
+    );
+  }
+}
+
 /// A still, non-interactive map centred on one charger. While the exact address is locked,
 /// a circle shows that the pin is only approximate.
 class ChargerMapSnippet extends StatelessWidget {
@@ -75,7 +103,7 @@ class ChargerMapSnippet extends StatelessWidget {
                 ),
               ],
             ),
-            const SimpleAttributionWidget(source: Text('OpenStreetMap contributors')),
+            const MapCredit(),
           ],
         ),
       ),

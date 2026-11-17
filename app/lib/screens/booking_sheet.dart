@@ -8,6 +8,7 @@ import '../design/tokens.dart';
 import '../format.dart';
 import '../models.dart';
 import '../theme.dart';
+import '../widgets/pressable.dart';
 import 'booking_screen.dart';
 
 /// Book a specific charger directly (ChargeMatch picks the slot for you instead).
@@ -146,7 +147,7 @@ class _BookingSheetState extends State<_BookingSheet> {
     final c = widget.charger;
     final kwh = _maxKwh;
     return SafeArea(
-      child: Padding(
+      child: SingleChildScrollView(
         padding: const EdgeInsets.fromLTRB(Gap.lg, 0, Gap.lg, Gap.lg),
         child: Column(
           mainAxisSize: MainAxisSize.min,
@@ -247,10 +248,12 @@ class _Choice extends StatelessWidget {
   Widget build(BuildContext context) {
     final vc = context.vc;
     return Semantics(
-      button: true,
       selected: selected,
-      child: GestureDetector(
+      // Pressable adds keyboard focus and Enter/Space; the haptic tick is already in onTap.
+      child: Pressable(
         onTap: onTap,
+        haptic: false,
+        focusRadius: BorderRadius.circular(Radii.md),
         child: AnimatedContainer(
           duration: Motion.fast,
           height: 48,

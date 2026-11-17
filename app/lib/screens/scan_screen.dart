@@ -298,7 +298,7 @@ class _CodeSheetState extends State<_CodeSheet> {
   @override
   Widget build(BuildContext context) {
     final vc = context.vc;
-    return Padding(
+    return SingleChildScrollView(
       padding: EdgeInsets.fromLTRB(Gap.lg, 0, Gap.lg, Gap.lg + MediaQuery.viewInsetsOf(context).bottom),
       child: SafeArea(
         child: Column(

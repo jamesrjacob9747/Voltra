@@ -33,9 +33,14 @@ class ConfidenceBadge extends StatelessWidget {
         children: [
           Icon(online ? Icons.bolt : Icons.power_off, size: 16, color: color),
           const SizedBox(width: 4),
-          Text(
-            label,
-            style: TextStyle(color: color, fontWeight: FontWeight.w700, fontSize: 13),
+          // In a narrow card the band name is cut with "…" rather than overflowing.
+          Flexible(
+            child: Text(
+              label,
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+              style: TextStyle(color: color, fontWeight: FontWeight.w700, fontSize: 13),
+            ),
           ),
         ],
       ),

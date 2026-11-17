@@ -280,7 +280,7 @@ class _MapScreenState extends State<MapScreen> with TickerProviderStateMixin {
         ),
         Padding(
           padding: EdgeInsets.only(bottom: attributionLift),
-          child: const SimpleAttributionWidget(source: Text('OpenStreetMap contributors')),
+          child: const MapCredit(),
         ),
       ],
     );

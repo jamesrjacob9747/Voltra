@@ -233,13 +233,10 @@ class _LiveSessionScreenState extends State<LiveSessionScreen> {
                 ),
               ],
               const SizedBox(height: Gap.xl),
-              GridView.count(
-                crossAxisCount: 2,
+              GridView(
+                gridDelegate: statGridDelegate(context, compact: true),
                 shrinkWrap: true,
                 physics: const NeverScrollableScrollPhysics(),
-                childAspectRatio: 2.1,
-                mainAxisSpacing: Gap.md,
-                crossAxisSpacing: Gap.md,
                 children: [
                   StatTile(
                     tone: StatTone.onNavy,

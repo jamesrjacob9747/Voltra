@@ -75,7 +75,10 @@ The app has a bottom bar: **Home** (map), **Bookings**, **Impact**, **Profile**.
    Say: *“Other apps say ‘sorry’. Voltra rebooks you in one tap and pays you ₹20 for the trouble.”*
 4. **Move my booking here** → new booking with the credit.
 
-**Optional, if time:** **Profile → Switch user** → **Rahul** (host) to show the dashboard: earnings, the live session card, Accept/Decline on requests. For a request to accept, book **Ejipura Garage Socket** (CHG007, Manoj) or **Priya’s Wallbox** (CHG004, Priya) as Arjun: those hosts approve each booking.
+**Optional, if time: the host side.**
+
+- **Earnings:** **Profile → Switch user** → **Rahul** (host) shows the dashboard: today's earnings and, if Arjun is charging at Rahul's charger (CHG002), the live session card.
+- **Accept/Decline:** a request goes to the host who owns that charger. As Arjun, book **Ejipura Garage Socket** (CHG007) → switch to **Manoj** to accept it; or book **Priya’s Wallbox** (CHG004) → switch to **Priya**. Those two chargers need the host’s approval; the others confirm instantly.
 
 ## 3. If something breaks
 
